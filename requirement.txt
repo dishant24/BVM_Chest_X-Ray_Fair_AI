@@ -4,3 +4,4 @@ matplotlib
 torchvision
 torch
 tqdm
+scikit-image
