@@ -5,3 +5,5 @@ torchvision
 torch
 tqdm
 scikit-image
+wandb
+scikit-learn

@@ -1,0 +1,31 @@
+{
+  "os": "Windows-10-10.0.19045-SP0",
+  "python": "CPython 3.12.8",
+  "startedAt": "2025-02-09T20:53:27.687478Z",
+  "program": "C:\\Users\\sutariya\\Desktop\\Thesis\\CXR_Preprocessing\\cxr_preprocessing\\chexpert_model.py",
+  "codePath": "chexpert_model.py",
+  "git": {
+    "remote": "git@gitlab.fme.lan:sutariya/cxr_preprocessing.git",
+    "commit": "ab85a54362d521aa10426d95dfdbe671ae337fc2"
+  },
+  "email": "dsutariya1999@gmail.com",
+  "root": "C:\\Users\\sutariya\\Desktop\\Thesis\\CXR_Preprocessing\\cxr_preprocessing",
+  "host": "student-28",
+  "executable": "C:\\Users\\sutariya\\Desktop\\Thesis\\.venv\\Scripts\\python.exe",
+  "codePathLocal": "chexpert_model.py",
+  "cpu_count": 4,
+  "cpu_count_logical": 8,
+  "disk": {
+    "/": {
+      "total": "169209110528",
+      "used": "133819248640"
+    }
+  },
+  "memory": {
+    "total": "16859357184"
+  },
+  "cpu": {
+    "count": 4,
+    "countLogical": 8
+  }
+}

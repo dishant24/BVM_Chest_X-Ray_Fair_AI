@@ -1,0 +1,31 @@
+{
+  "os": "Windows-10-10.0.19045-SP0",
+  "python": "CPython 3.12.8",
+  "startedAt": "2025-02-04T15:41:49.883999Z",
+  "program": "c:\\Users\\sutariya\\Desktop\\Thesis\\CXR_Preprocessing\\cxr_preprocessing\\main.ipynb",
+  "codePath": "main.ipynb",
+  "git": {
+    "remote": "git@gitlab.fme.lan:sutariya/cxr_preprocessing.git",
+    "commit": "ab85a54362d521aa10426d95dfdbe671ae337fc2"
+  },
+  "email": "dsutariya1999@gmail.com",
+  "root": "c:\\Users\\sutariya\\Desktop\\Thesis\\CXR_Preprocessing\\cxr_preprocessing",
+  "host": "student-28",
+  "executable": "c:\\Users\\sutariya\\Desktop\\Thesis\\.venv\\Scripts\\python.exe",
+  "codePathLocal": "main.ipynb",
+  "cpu_count": 4,
+  "cpu_count_logical": 8,
+  "disk": {
+    "/": {
+      "total": "169209110528",
+      "used": "127065436160"
+    }
+  },
+  "memory": {
+    "total": "16859357184"
+  },
+  "cpu": {
+    "count": 4,
+    "countLogical": 8
+  }
+}
