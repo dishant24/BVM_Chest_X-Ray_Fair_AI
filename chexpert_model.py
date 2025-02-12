@@ -18,7 +18,6 @@ import wandb
 
 
 torch.cuda.empty_cache()
-key = 'c97efa068ce628aa2d4ad9bbc8b2b2dbaa6c6387'
 
 def file_load(training_file_path, demographic_data_path):
      training_data = pd.read_csv(training_file_path)
@@ -26,16 +25,32 @@ def file_load(training_file_path, demographic_data_path):
      return training_data, demographic_data
 
 def select_most_positive_sample(group):
-    group['positive_count'] = group[[
+
+    disease_columns = [
     'No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
     'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
-    'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
-    'Support Devices'
-]].apply(lambda x: (x == 1).sum(), axis=1)
+    'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture'
+    ]
     
-    max_positive_sample = group.loc[group['positive_count'].idxmax()]
+    group['positive_count'] = group[disease_columns].sum(axis=1)
     
-    return max_positive_sample
+    positive_cases = group[group['positive_count'] > 0]
+    
+    if not positive_cases.empty:
+
+        selected_sample = positive_cases.loc[positive_cases['positive_count'].idxmax()]
+    else:
+        selected_sample = group.sample(n=1).iloc[0]
+    
+    return selected_sample
+
+def sampling_datasets(training_dataset):
+
+    training_dataset = training_dataset.groupby('subject_id', group_keys=False).apply(select_most_positive_sample)
+    training_dataset.drop(columns=['positive_count'], inplace=True, errors='ignore')
+    
+    return training_dataset
+
 
 def merge_dataframe(training_data, demographic_data):
      path = training_data['Path']
@@ -51,10 +66,6 @@ def merge_dataframe(training_data, demographic_data):
      training_data_merge = training_data.merge(demographic_data, on='subject_id')
      return training_data_merge
 
-def sampling_datasets(traning_dataset):
-    traning_dataset = traning_dataset.groupby('subject_id', group_keys=False).apply(select_most_positive_sample).reset_index(drop=True)
-    traning_dataset.drop('positive_count', axis=1, inplace=True)
-    return traning_dataset
 
 def cleaning_datasets(traning_dataset):
 
@@ -83,8 +94,11 @@ def store_diagnostic_images_labels(training_data_merge):
           data_images.append(img)
           paths.set_postfix({'Loaded': len(data_images)})
 
-     data_labels = training_data_merge['No Finding'].values
+     data_labels = training_data_merge[['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
+    'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
+    'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture']].values
      data_labels = torch.tensor(data_labels, dtype=torch.float32)
+     data_labels = torch.argmax(data_labels, dim=1)
 
      return data_images, data_labels
 
@@ -127,10 +141,12 @@ class MyDataset(Dataset):
 
 def prepare_dataloaders(data_images, labels):
      transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.Lambda(lambda x: x.to(torch.float32)),
-    transforms.Lambda(lambda i: i.repeat(3, 1, 1))
-])
+        transforms.Resize((224, 224)),
+        transforms.Lambda(lambda x: x.to(torch.float32)),
+        transforms.Lambda(lambda i: i.repeat(3, 1, 1) if i.shape[0] == 1 else i),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+
      dataset = MyDataset(data_images,labels,transform)
 
      train_size = int(0.7 * len(dataset)) 
@@ -162,15 +178,15 @@ class DenseNet_Model(nn.Module):
 
 
 def log_roc_auc(y_true, y_scores, log=True, log_name="roc_auc_curve"):
-
     y_scores = np.array(y_scores)
     classes = np.unique(y_true) 
     y_true_bin = label_binarize(y_true, classes=classes)
-    
     total_roc = 0
-    fig, ax = plt.subplots(figsize=(10, 5))
-    
-    
+
+    fig_width = 5 + min(len(classes) // 3, 5)
+    fig_height = 5 + min(len(classes) // 5, 5)
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+
     for i, class_label in enumerate(classes):
         fpr, tpr, _ = roc_curve(y_true_bin[:, i], y_scores[:, i])
         roc_auc = auc(fpr, tpr)
@@ -183,7 +199,11 @@ def log_roc_auc(y_true, y_scores, log=True, log_name="roc_auc_curve"):
     ax.set_xlabel("False Positive Rate")
     ax.set_ylabel("True Positive Rate")
     ax.set_title("Multi-Class ROC Curve")
-    ax.legend(loc="lower right")
+
+    if len(classes) > 10:
+        ax.legend(loc="lower right", fontsize=8)
+    else:
+        ax.legend(loc="lower right", fontsize=10)
 
     if log:
         wandb.log({log_name: wandb.Image(fig)})
@@ -204,7 +224,7 @@ class EarlyStopper:
             self.counter = 0
         elif validation_loss > (self.min_validation_loss):
             self.counter += 1
-            if self.counter >= self.patience:
+            if self.counter > self.patience:
                 return True
         return False
 
@@ -285,7 +305,7 @@ def model_training(model, train_loader, val_loader, num_epochs=10, device=None, 
     log_roc_auc(all_val_labels, all_val_preds, log=False, log_name='Validation ROC-AUC')
 
 
-def testing_model(test_loader, model, device, is_binary=False):
+def testing_model(test_loader, model, device=None, is_binary=False):
     model.to(device)
     model.eval()
 
@@ -317,10 +337,12 @@ if __name__ == '__main__':
     wandb.init(
     project="cxr_preprocessing",
     config={
-    "learning_rate": 0.001,
-    "architecture": "DenseNet",
+    "learning_rate": 0.0001,
+    "epochs": 20,
+    "Augmentation": 'No',
+    "architecture": "DenseNet121",
     "dataset": "CheXpert",
-    "epochs": 20
+    "Standardization": 'No'
     }
     )
 
@@ -334,11 +356,11 @@ if __name__ == '__main__':
     
     data_images,labels = store_diagnostic_images_labels(training_dataset)
     train_loader, val_loader, test_loader = prepare_dataloaders(data_images,labels)
-    model = DenseNet_Model(weights=None, out_feature=1)
+    model = DenseNet_Model(weights=None, out_feature=13)
 
-    model_training(model,train_loader,val_loader,20,is_binary=True)
+    model_training(model,train_loader,val_loader,20,is_binary=False, device=device)
 
-    torch.save(model.state_dict(), 'no_finding_model.pth')
+    torch.save(model.state_dict(), 'diagnostic_model.pth')
 
     #testing_model(test_loader,test_model,'cpu')
     

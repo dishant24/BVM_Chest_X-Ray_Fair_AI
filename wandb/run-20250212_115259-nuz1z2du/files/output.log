@@ -1,0 +1,20 @@
+C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py:49: DeprecationWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.
+  training_dataset = training_dataset.groupby('subject_id', group_keys=False).apply(select_most_positive_sample)
+C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py:84: SettingWithCopyWarning:
+A value is trying to be set on a copy of a slice from a DataFrame
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  traning_dataset.fillna(0, inplace=True)
+Loading images: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 62183/62183 [01:52<00:00, 551.46it/s, Loaded=62183]
+                                                                                                                                                                                                                                       
+Epoch [1/20], Train Loss: 1.7840, Val Loss: 1.7571
+Epoch [2/20], Train Loss: 1.6944, Val Loss: 1.6789
+Epoch [3/20], Train Loss: 1.6519, Val Loss: 1.6728
+Epoch [4/20], Train Loss: 1.6185, Val Loss: 1.6992
+Epoch [5/20], Train Loss: 1.5821, Val Loss: 1.7012
+Epoch [6/20], Train Loss: 1.5381, Val Loss: 1.6614
+Epoch [7/20], Train Loss: 1.4798, Val Loss: 1.6770
+Epoch [8/20], Train Loss: 1.3817, Val Loss: 1.8546
+Epoch [9/20], Train Loss: 1.2332, Val Loss: 2.2971
+Training ROC-AUC : 0.7944437551046565
+Validation ROC-AUC : 0.7061533919614056
