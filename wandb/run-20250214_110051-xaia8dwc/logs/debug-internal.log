@@ -1,0 +1,15 @@
+{"time":"2025-02-14T11:00:52.1316841+01:00","level":"INFO","msg":"stream: starting","core version":"0.19.5","symlink path":"C:\\Users\\sutariya\\Desktop\\Thesis\\CXR_Preprocessing\\cxr_preprocessing\\wandb\\run-20250214_110051-xaia8dwc\\logs\\debug-core.log"}
+{"time":"2025-02-14T11:00:52.5573394+01:00","level":"INFO","msg":"created new stream","id":"xaia8dwc"}
+{"time":"2025-02-14T11:00:52.5573394+01:00","level":"INFO","msg":"stream: started","id":"xaia8dwc"}
+{"time":"2025-02-14T11:00:52.5573394+01:00","level":"INFO","msg":"handler: started","stream_id":"xaia8dwc"}
+{"time":"2025-02-14T11:00:52.5573394+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"xaia8dwc"}
+{"time":"2025-02-14T11:00:52.5573394+01:00","level":"INFO","msg":"sender: started","stream_id":"xaia8dwc"}
+{"time":"2025-02-14T11:00:52.8787035+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-02-14T11:03:44.3375181+01:00","level":"INFO","msg":"stream: closing","id":"xaia8dwc"}
+{"time":"2025-02-14T11:03:44.3386616+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-02-14T11:03:44.3397708+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-02-14T11:03:45.2277374+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-02-14T11:03:45.4335129+01:00","level":"INFO","msg":"handler: closed","stream_id":"xaia8dwc"}
+{"time":"2025-02-14T11:03:45.4335129+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"xaia8dwc"}
+{"time":"2025-02-14T11:03:45.4335129+01:00","level":"INFO","msg":"sender: closed","stream_id":"xaia8dwc"}
+{"time":"2025-02-14T11:03:45.434654+01:00","level":"INFO","msg":"stream: closed","id":"xaia8dwc"}

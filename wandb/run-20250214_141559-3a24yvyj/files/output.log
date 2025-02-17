@@ -1,0 +1,17 @@
+Index(['Path', 'Sex', 'Age', 'Frontal/Lateral', 'AP/PA', 'No Finding',
+       'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
+       'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
+       'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
+       'Support Devices', 'subject_id', 'race', 'ethnicity', 'insurance_type'],
+      dtype='object')
+Index(['Path', 'Sex', 'Age', 'Frontal/Lateral', 'AP/PA', 'No Finding',
+       'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
+       'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
+       'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
+       'Support Devices', 'subject_id', 'race', 'ethnicity', 'insurance_type'],
+      dtype='object')
+Loading images: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 58072/58072 [01:44<00:00, 556.54it/s, Loaded=58072]
+Loading images: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 6453/6453 [00:13<00:00, 474.85it/s, Loaded=6453]
+Traceback (most recent call last):
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 394, in <module>
+TypeError: model_training() got an unexpected keyword argument 'is_binary'

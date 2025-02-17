@@ -1,0 +1,17 @@
+Loading images: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 58067/58067 [01:48<00:00, 533.52it/s, Loaded=58067]
+Loading images: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 6452/6452 [00:13<00:00, 487.08it/s, Loaded=6452]
+Traceback (most recent call last):                                                                                                                                                                                                     
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 420, in <module>
+    model_training(model, train_loader, val_loader, 20, device=device)
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 332, in model_training
+    train_acc = accuracy_score(all_train_labels, train_preds_binary,  average='macro')
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\sklearn\utils\_param_validation.py", line 194, in wrapper
+    params = func_sig.bind(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\AppData\Local\Programs\Python\Python312\Lib\inspect.py", line 3277, in bind
+    return self._bind(args, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\AppData\Local\Programs\Python\Python312\Lib\inspect.py", line 3266, in _bind
+    raise TypeError(
+TypeError: got an unexpected keyword argument 'average'

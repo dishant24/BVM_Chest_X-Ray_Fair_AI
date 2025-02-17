@@ -1,0 +1,46 @@
+Loading images: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 10000/10000 [00:10<00:00, 934.93it/s, Loaded=1e+4]
+Loading images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1000/1000 [00:00<00:00, 1052.80it/s, Loaded=1000]
+Traceback (most recent call last):                                                                                                                                                                                    
+Epoch [1/20], Train AUC: 0.6171, Train Loss: 0.4265, Val AUC 0.6441, Val Loss: 0.4116
+Epoch [2/20], Train AUC: 0.6465, Train Loss: 0.4084, Val AUC 0.6621, Val Loss: 0.4119
+Epoch [3/20], Train AUC: 0.6550, Train Loss: 0.4057, Val AUC 0.6624, Val Loss: 0.4075
+Epoch [4/20], Train AUC: 0.6609, Train Loss: 0.4019, Val AUC 0.6683, Val Loss: 0.4022
+Epoch [5/20], Train AUC: 0.6680, Train Loss: 0.3995, Val AUC 0.6799, Val Loss: 0.4031
+Epoch [6/20], Train AUC: 0.6732, Train Loss: 0.3967, Val AUC 0.6903, Val Loss: 0.3931
+Epoch [7/20], Train AUC: 0.6790, Train Loss: 0.3950, Val AUC 0.6901, Val Loss: 0.3960
+Epoch [8/20], Train AUC: 0.6833, Train Loss: 0.3936, Val AUC 0.6895, Val Loss: 0.4025
+Epoch [9/20], Train AUC: 0.6904, Train Loss: 0.3907, Val AUC 0.6817, Val Loss: 0.4415
+Epoch [10/20], Train AUC: 0.6942, Train Loss: 0.3896, Val AUC 0.7022, Val Loss: 0.3929
+Epoch [11/20], Train AUC: 0.6980, Train Loss: 0.3879, Val AUC 0.6999, Val Loss: 0.3963
+Epoch [12/20], Train AUC: 0.7034, Train Loss: 0.3862, Val AUC 0.7090, Val Loss: 0.3931
+Epoch [13/20], Train AUC: 0.7057, Train Loss: 0.3849, Val AUC 0.7020, Val Loss: 0.3900
+Epoch [14/20], Train AUC: 0.7090, Train Loss: 0.3838, Val AUC 0.7194, Val Loss: 0.3869
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 393, in <module>
+    model_training(model, train_loader, val_loader, 20, device=device)
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 260, in model_training
+    for batch_idx, (inputs, tr_labels) in enumerate(train_loop):
+                                          ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\tqdm\std.py", line 1181, in __iter__
+    for obj in iterable:
+               ^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\utils\data\dataloader.py", line 708, in __next__
+    data = self._next_data()
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\utils\data\dataloader.py", line 764, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\utils\data\_utils\fetch.py", line 55, in fetch
+    return self.collate_fn(data)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\utils\data\_utils\collate.py", line 398, in default_collate
+    return collate(batch, collate_fn_map=default_collate_fn_map)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\utils\data\_utils\collate.py", line 212, in collate
+    collate(samples, collate_fn_map=collate_fn_map)
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\utils\data\_utils\collate.py", line 155, in collate
+    return collate_fn_map[elem_type](batch, collate_fn_map=collate_fn_map)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\utils\data\_utils\collate.py", line 272, in collate_tensor_fn
+    return torch.stack(batch, 0, out=out)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

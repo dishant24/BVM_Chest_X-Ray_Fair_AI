@@ -1,0 +1,19 @@
+Loading images:  69%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████                                                | 40348/58072 [01:19<00:38, 455.33it/s, Loaded=40362][34m[1mwandb[0m: [33mWARNING[0m Fatal error while uploading data. Some run data will not be synced, but it will still be written to disk. Use `wandb sync` at the end of the run to try uploading.
+Loading images:  95%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▊       | 55407/58072 [01:58<00:05, 469.33it/s, Loaded=55407]
+Traceback (most recent call last):
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 370, in <module>
+    train_data_images,train_labels = store_diagnostic_images_labels(training_dataset)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 100, in store_diagnostic_images_labels
+    img = read_image(full_path)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\io\image.py", line 336, in read_image
+    data = read_file(path)
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\io\image.py", line 64, in read_file
+    data = torch.ops.image.read_file(str(path))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\_ops.py", line 1123, in __call__
+    return self._op(*args, **(kwargs or {}))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

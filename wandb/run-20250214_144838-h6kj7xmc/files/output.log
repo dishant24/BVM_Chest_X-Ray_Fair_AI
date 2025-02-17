@@ -1,0 +1,23 @@
+Loading images: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 58072/58072 [01:50<00:00, 523.40it/s, Loaded=58072]
+Loading images: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 6453/6453 [00:12<00:00, 508.36it/s, Loaded=6453]
+Epoch [1/20] Training:   0%|                                                                                                                                                                                  | 0/3630 [00:00<?, ?it/s]C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\sklearn\utils\_array_api.py:399: RuntimeWarning: invalid value encountered in cast
+  return x.astype(dtype, copy=copy, casting=casting)
+Traceback (most recent call last):                                                                                                                                                                                                     
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 388, in <module>
+    model_training(model, train_loader, val_loader, 20, device=device)
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 274, in model_training
+    auc_roc_train = roc_auc_score(tr_labels.cpu().numpy(), tr_preds)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\sklearn\utils\_param_validation.py", line 216, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\sklearn\metrics\_ranking.py", line 618, in roc_auc_score
+    y_type = type_of_target(y_true, input_name="y_true")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\sklearn\utils\multiclass.py", line 417, in type_of_target
+    _assert_all_finite(data, input_name=input_name)
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\sklearn\utils\validation.py", line 120, in _assert_all_finite
+    _assert_all_finite_element_wise(
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\sklearn\utils\validation.py", line 169, in _assert_all_finite_element_wise
+    raise ValueError(msg_err)
+ValueError: Input y_true contains NaN.

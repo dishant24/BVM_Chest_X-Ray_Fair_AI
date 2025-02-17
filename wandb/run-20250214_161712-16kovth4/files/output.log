@@ -1,0 +1,10 @@
+Loading images: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 20000/20000 [00:37<00:00, 532.85it/s, Loaded=2e+4]
+Loading images: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1000/1000 [00:01<00:00, 823.53it/s, Loaded=1000]
+Traceback (most recent call last):                                                                                                                                                                                    
+Epoch [1/20], Train AUC: 0.6309, Train Loss: 0.4204, Val AUC 0.6729, Val Loss: 0.4073
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 392, in <module>
+    model_training(model, train_loader, val_loader, 20, device=device)
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 269, in model_training
+    train_loss += loss.item()
+                  ^^^^^^^^^^^
+KeyboardInterrupt

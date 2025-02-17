@@ -1,0 +1,13 @@
+Loading images: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 58067/58067 [01:53<00:00, 511.17it/s, Loaded=58067]
+Loading images: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 6452/6452 [00:12<00:00, 497.09it/s, Loaded=6452]
+                                                                                                                                                                                                                                       
+Epoch [1/20], Train AUC: 0.6838, Train Acc: 0.0640, Train Loss: 0.3990, Val AUC: 0.7110, Val Acc: 0.0566, Val Loss: 0.3944
+Epoch [2/20], Train AUC: 0.7145, Train Acc: 0.0709, Train Loss: 0.3857, Val AUC: 0.7345, Val Acc: 0.0925, Val Loss: 0.3848
+Epoch [3/20], Train AUC: 0.7278, Train Acc: 0.0773, Train Loss: 0.3792, Val AUC: 0.7294, Val Acc: 0.0600, Val Loss: 0.3907
+Epoch [4/20], Train AUC: 0.7371, Train Acc: 0.0813, Train Loss: 0.3753, Val AUC: 0.7441, Val Acc: 0.0842, Val Loss: 0.3846
+Epoch [5/20], Train AUC: 0.7442, Train Acc: 0.0862, Train Loss: 0.3716, Val AUC: 0.7541, Val Acc: 0.0888, Val Loss: 0.3711
+Epoch [6/20], Train AUC: 0.7511, Train Acc: 0.0875, Train Loss: 0.3687, Val AUC: 0.7516, Val Acc: 0.0792, Val Loss: 0.3749
+Epoch [7/20], Train AUC: 0.7552, Train Acc: 0.0905, Train Loss: 0.3662, Val AUC: 0.7447, Val Acc: 0.0894, Val Loss: 0.3846
+Epoch [8/20], Train AUC: 0.7582, Train Acc: 0.0929, Train Loss: 0.3644, Val AUC: 0.7526, Val Acc: 0.0938, Val Loss: 0.3802
+Epoch [9/20], Train AUC: 0.7611, Train Acc: 0.0934, Train Loss: 0.3632, Val AUC: 0.7588, Val Acc: 0.1045, Val Loss: 0.3739
+Early stopping triggered.
