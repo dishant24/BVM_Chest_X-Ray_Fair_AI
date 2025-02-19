@@ -1,0 +1,32 @@
+Loading images: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 57017/57017 [02:03<00:00, 463.03it/s, Loaded=57017]
+Loading images: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 6330/6330 [00:16<00:00, 392.83it/s, Loaded=6330]
+Traceback (most recent call last):                                                                                                                                                                                                     
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 510, in <module>
+    model_training(model, train_loader, val_loader, 20, device=device, multi_label=False)
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 385, in model_training
+    auc_roc_train = f1_score(all_train_labels, train_preds_classes, average='macro')
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\sklearn\utils\_param_validation.py", line 216, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\sklearn\metrics\_classification.py", line 1324, in f1_score
+    return fbeta_score(
+           ^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\sklearn\utils\_param_validation.py", line 189, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\sklearn\metrics\_classification.py", line 1517, in fbeta_score
+    _, _, f, _ = precision_recall_fscore_support(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\sklearn\utils\_param_validation.py", line 189, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\sklearn\metrics\_classification.py", line 1830, in precision_recall_fscore_support
+    labels = _check_set_wise_labels(y_true, y_pred, average, labels, pos_label)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\sklearn\metrics\_classification.py", line 1596, in _check_set_wise_labels
+    y_type, y_true, y_pred = _check_targets(y_true, y_pred)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\sklearn\metrics\_classification.py", line 107, in _check_targets
+    raise ValueError(
+ValueError: Classification metrics can't handle a mix of multilabel-indicator and multiclass targets

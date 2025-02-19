@@ -1,0 +1,45 @@
+Loading images: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 57017/57017 [01:53<00:00, 502.25it/s, Loaded=57017]
+Loading images: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 6330/6330 [00:14<00:00, 448.10it/s, Loaded=6330]
+Traceback (most recent call last):                                                                                                                                                                                                     
+Epoch [1/20.0000], Train AUC: 0.5074, Train Acc: 0.4222, Train Loss: 1.3038, Val AUC: 0.5247, Val Acc: 0.4257, Val Loss: 1.2318
+Epoch [2/20.0000], Train AUC: 0.5350, Train Acc: 0.4199, Train Loss: 1.2405, Val AUC: 0.5379, Val Acc: 0.4257, Val Loss: 1.2267
+Epoch [3/20.0000], Train AUC: 0.5486, Train Acc: 0.4199, Train Loss: 1.2361, Val AUC: 0.5480, Val Acc: 0.4257, Val Loss: 1.2228
+Epoch [4/20.0000], Train AUC: 0.5549, Train Acc: 0.4199, Train Loss: 1.2336, Val AUC: 0.5496, Val Acc: 0.4257, Val Loss: 1.2228
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 511, in <module>
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 330, in model_training
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\tqdm\std.py", line 1181, in __iter__
+    for obj in iterable:
+               ^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\utils\data\dataloader.py", line 708, in __next__
+    data = self._next_data()
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\utils\data\dataloader.py", line 764, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\utils\data\_utils\fetch.py", line 52, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+            ~~~~~~~~~~~~^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 142, in __getitem__
+    # Convert labels to tensor (Ensure it's `long` for CrossEntropyLoss)
+                  ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\transforms\transforms.py", line 95, in __call__
+    img = t(img)
+          ^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\transforms\transforms.py", line 1372, in forward
+    return F.rotate(img, angle, self.interpolation, self.expand, self.center, fill)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\transforms\functional.py", line 1132, in rotate
+    return F_t.rotate(img, matrix=matrix, interpolation=interpolation.value, expand=expand, fill=fill)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\transforms\_functional_tensor.py", line 667, in rotate
+    grid = _gen_affine_grid(theta, w=w, h=h, ow=ow, oh=oh)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\transforms\_functional_tensor.py", line 597, in _gen_affine_grid
+    base_grid[..., 1].copy_(y_grid)
+KeyboardInterrupt

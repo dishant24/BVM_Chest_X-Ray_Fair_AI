@@ -1,0 +1,76 @@
+Loading images: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1970/1970 [00:01<00:00, 1057.76it/s, Loaded=1970]
+C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py:140: SettingWithCopyWarning:
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  training_data_merge['race_label'] = training_data_merge['race'].map(race_mapping)
+Loading images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 980/980 [00:00<00:00, 1071.47it/s, Loaded=980]
+C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py:140: SettingWithCopyWarning:
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  training_data_merge['race_label'] = training_data_merge['race'].map(race_mapping)
+Traceback (most recent call last):                                                                                                                                                                                                     
+Epoch [1/20.0000], Train AUC: 0.4823, Train Acc: 0.3198, Train Loss: 1.5970, Val AUC: 0.4947, Val Acc: 0.3675, Val Loss: 1.5529
+Epoch [2/20.0000], Train AUC: 0.4757, Train Acc: 0.3943, Train Loss: 1.5242, Val AUC: 0.4934, Val Acc: 0.4324, Val Loss: 1.4851
+Epoch [3/20.0000], Train AUC: 0.4816, Train Acc: 0.4269, Train Loss: 1.4631, Val AUC: 0.4957, Val Acc: 0.4463, Val Loss: 1.4274
+Epoch [4/20.0000], Train AUC: 0.4816, Train Acc: 0.4279, Train Loss: 1.4121, Val AUC: 0.5084, Val Acc: 0.4463, Val Loss: 1.3787
+Epoch [5/20.0000], Train AUC: 0.4921, Train Acc: 0.4279, Train Loss: 1.3709, Val AUC: 0.5083, Val Acc: 0.4463, Val Loss: 1.3423
+Epoch [6/20.0000], Train AUC: 0.4899, Train Acc: 0.4279, Train Loss: 1.3404, Val AUC: 0.5049, Val Acc: 0.4463, Val Loss: 1.3142
+Epoch [7/20.0000], Train AUC: 0.4971, Train Acc: 0.4279, Train Loss: 1.3136, Val AUC: 0.5205, Val Acc: 0.4463, Val Loss: 1.2894
+Epoch [8/20.0000], Train AUC: 0.4927, Train Acc: 0.4279, Train Loss: 1.2950, Val AUC: 0.5100, Val Acc: 0.4463, Val Loss: 1.2750
+Epoch [9/20.0000], Train AUC: 0.5024, Train Acc: 0.4279, Train Loss: 1.2836, Val AUC: 0.5133, Val Acc: 0.4463, Val Loss: 1.2620
+Epoch [10/20.0000], Train AUC: 0.5064, Train Acc: 0.4279, Train Loss: 1.2730, Val AUC: 0.5096, Val Acc: 0.4463, Val Loss: 1.2511
+Epoch [11/20.0000], Train AUC: 0.5001, Train Acc: 0.4279, Train Loss: 1.2654, Val AUC: 0.5206, Val Acc: 0.4463, Val Loss: 1.2435
+Epoch [12/20.0000], Train AUC: 0.5002, Train Acc: 0.4279, Train Loss: 1.2596, Val AUC: 0.5204, Val Acc: 0.4463, Val Loss: 1.2391
+Epoch [13/20.0000], Train AUC: 0.5041, Train Acc: 0.4279, Train Loss: 1.2544, Val AUC: 0.5075, Val Acc: 0.4463, Val Loss: 1.2375
+Epoch [14/20.0000], Train AUC: 0.5009, Train Acc: 0.4279, Train Loss: 1.2514, Val AUC: 0.5192, Val Acc: 0.4463, Val Loss: 1.2314
+Epoch [15/20.0000], Train AUC: 0.5126, Train Acc: 0.4279, Train Loss: 1.2447, Val AUC: 0.5278, Val Acc: 0.4463, Val Loss: 1.2283
+Epoch [16/20.0000], Train AUC: 0.5111, Train Acc: 0.4279, Train Loss: 1.2465, Val AUC: 0.5246, Val Acc: 0.4463, Val Loss: 1.2258
+Epoch [17/20.0000], Train AUC: 0.5165, Train Acc: 0.4279, Train Loss: 1.2426, Val AUC: 0.5172, Val Acc: 0.4463, Val Loss: 1.2280
+Epoch [18/20.0000], Train AUC: 0.5191, Train Acc: 0.4279, Train Loss: 1.2412, Val AUC: 0.5236, Val Acc: 0.4463, Val Loss: 1.2267
+Epoch [19/20.0000], Train AUC: 0.5115, Train Acc: 0.4279, Train Loss: 1.2421, Val AUC: 0.5162, Val Acc: 0.4463, Val Loss: 1.2249
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 533, in <module>
+    model_training(model, train_loader, val_loader, 20, device=device, multi_label=False)
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 350, in model_training
+    for batch_idx, (inputs, labels) in enumerate(train_loop):
+                                       ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\tqdm\std.py", line 1181, in __iter__
+    for obj in iterable:
+               ^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\utils\data\dataloader.py", line 708, in __next__
+    data = self._next_data()
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\utils\data\dataloader.py", line 764, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\utils\data\_utils\fetch.py", line 52, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+            ~~~~~~~~~~~~^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 162, in __getitem__
+    img = self.transform(img)
+          ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\transforms\transforms.py", line 95, in __call__
+    img = t(img)
+          ^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\transforms\transforms.py", line 1372, in forward
+    return F.rotate(img, angle, self.interpolation, self.expand, self.center, fill)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\transforms\functional.py", line 1132, in rotate
+    return F_t.rotate(img, matrix=matrix, interpolation=interpolation.value, expand=expand, fill=fill)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\transforms\_functional_tensor.py", line 669, in rotate
+    return _apply_grid_transform(img, grid, interpolation, fill=fill)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\transforms\_functional_tensor.py", line 558, in _apply_grid_transform
+    img = torch.cat((img, mask), dim=1)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

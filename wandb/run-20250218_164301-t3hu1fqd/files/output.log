@@ -1,0 +1,18 @@
+Loading images:  49%|████████████████████████████████████████████████████████████████████████████▏                                                                                | 27667/57017 [00:58<01:01, 474.25it/s, Loaded=27667]
+Traceback (most recent call last):
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 503, in <module>
+    train_data_images,train_labels = store_race_images_labels(training_dataset)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 118, in store_race_images_labels
+    img = read_image(full_path)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\io\image.py", line 336, in read_image
+    data = read_file(path)
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\io\image.py", line 64, in read_file
+    data = torch.ops.image.read_file(str(path))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\_ops.py", line 1123, in __call__
+    return self._op(*args, **(kwargs or {}))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

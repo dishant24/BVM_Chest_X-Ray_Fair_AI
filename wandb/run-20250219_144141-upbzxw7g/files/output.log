@@ -1,0 +1,27 @@
+Loading images: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 9833/9833 [00:09<00:00, 1073.66it/s, Loaded=9833]
+C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py:143: SettingWithCopyWarning:
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  training_data_merge['race_encoded'] = label_encoder.fit_transform(training_data_merge['race'])
+Loading images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 980/980 [00:00<00:00, 1078.73it/s, Loaded=980]
+C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py:143: SettingWithCopyWarning:
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  training_data_merge['race_encoded'] = label_encoder.fit_transform(training_data_merge['race'])
+(array([0, 1, 2, 3, 4]), array([1102,  479, 1434, 1155, 5663]))
+(array([0, 1, 2, 3, 4]), array([118,  54, 120, 103, 585]))
+Traceback (most recent call last):
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 558, in <module>
+    criterion = nn.CrossEntropyLoss(weight=weights)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\nn\modules\loss.py", line 1290, in __init__
+    super().__init__(weight, size_average, reduce, reduction)
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\nn\modules\loss.py", line 58, in __init__
+    self.register_buffer("weight", weight)
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\nn\modules\module.py", line 569, in register_buffer
+    raise TypeError(
+TypeError: cannot assign 'numpy.ndarray' object to buffer 'weight' (torch Tensor or None required)

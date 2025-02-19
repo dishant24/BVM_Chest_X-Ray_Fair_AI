@@ -1,0 +1,33 @@
+Loading images: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1970/1970 [00:01<00:00, 1066.83it/s, Loaded=1970]
+C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py:141: SettingWithCopyWarning:
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  training_data_merge['race_encoded'] = label_encoder.fit_transform(training_data_merge['race'])
+Loading images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 980/980 [00:00<00:00, 1055.88it/s, Loaded=980]
+C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py:141: SettingWithCopyWarning:
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  training_data_merge['race_encoded'] = label_encoder.fit_transform(training_data_merge['race'])
+Traceback (most recent call last):                                                                                                                                                                                                     
+Epoch [1/20.0000], Train AUC: 0.5025, Train Acc: 0.0657, Train Loss: 1.6150, Val AUC: 0.4967, Val Acc: 0.1718, Val Loss: 1.5760
+Epoch [2/20.0000], Train AUC: 0.5002, Train Acc: 0.3355, Train Loss: 1.5387, Val AUC: 0.4973, Val Acc: 0.4303, Val Loss: 1.5016
+Epoch [3/20.0000], Train AUC: 0.5006, Train Acc: 0.4345, Train Loss: 1.4737, Val AUC: 0.4890, Val Acc: 0.4437, Val Loss: 1.4419
+Epoch [4/20.0000], Train AUC: 0.4922, Train Acc: 0.4278, Train Loss: 1.4185, Val AUC: 0.4814, Val Acc: 0.4463, Val Loss: 1.3905
+Epoch [5/20.0000], Train AUC: 0.4974, Train Acc: 0.4279, Train Loss: 1.3756, Val AUC: 0.4842, Val Acc: 0.4463, Val Loss: 1.3476
+Epoch [6/20.0000], Train AUC: 0.4832, Train Acc: 0.4279, Train Loss: 1.3418, Val AUC: 0.4918, Val Acc: 0.4463, Val Loss: 1.3194
+Epoch [7/20.0000], Train AUC: 0.4858, Train Acc: 0.4279, Train Loss: 1.3164, Val AUC: 0.4854, Val Acc: 0.4463, Val Loss: 1.2920
+Epoch [8/20.0000], Train AUC: 0.4842, Train Acc: 0.4279, Train Loss: 1.2975, Val AUC: 0.4861, Val Acc: 0.4463, Val Loss: 1.2771
+Epoch [9/20.0000], Train AUC: 0.4941, Train Acc: 0.4279, Train Loss: 1.2796, Val AUC: 0.4855, Val Acc: 0.4463, Val Loss: 1.2629
+Epoch [10/20.0000], Train AUC: 0.4901, Train Acc: 0.4279, Train Loss: 1.2703, Val AUC: 0.4954, Val Acc: 0.4463, Val Loss: 1.2510
+Epoch [11/20.0000], Train AUC: 0.4917, Train Acc: 0.4279, Train Loss: 1.2630, Val AUC: 0.5007, Val Acc: 0.4463, Val Loss: 1.2421
+Epoch [12/20.0000], Train AUC: 0.4915, Train Acc: 0.4279, Train Loss: 1.2586, Val AUC: 0.4967, Val Acc: 0.4463, Val Loss: 1.2378
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 532, in <module>
+    model_training(model, train_loader, val_loader, 20, device=device, multi_label=False)
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 359, in model_training
+    train_loss += loss.item()
+                  ^^^^^^^^^^^
+KeyboardInterrupt

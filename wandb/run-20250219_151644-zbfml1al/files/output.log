@@ -1,0 +1,25 @@
+Loading images: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 57017/57017 [01:38<00:00, 578.92it/s, Loaded=57017]
+C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py:143: SettingWithCopyWarning:
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  training_data_merge['race_encoded'] = label_encoder.fit_transform(training_data_merge['race'])
+Loading images: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 6330/6330 [00:20<00:00, 301.70it/s, Loaded=6330]
+C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py:143: SettingWithCopyWarning:
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  training_data_merge['race_encoded'] = label_encoder.fit_transform(training_data_merge['race'])
+(array([0, 1, 2, 3, 4]), array([ 6371,  2838,  8444,  6577, 32787]))
+(array([0, 1, 2, 3, 4]), array([ 715,  281,  973,  690, 3671]))
+                                                                                                                                                                                                                                       
+Epoch [1/20.0000], Train AUC: 0.5736, Train Acc: 0.2555, Train Loss: 1.5862, Val AUC: 0.5632, Val Acc: 0.2279, Val Loss: 1.5973
+Epoch [2/20.0000], Train AUC: 0.5839, Train Acc: 0.2690, Train Loss: 1.5796, Val AUC: 0.5672, Val Acc: 0.2456, Val Loss: 1.5901
+Epoch [3/20.0000], Train AUC: 0.5883, Train Acc: 0.2681, Train Loss: 1.5767, Val AUC: 0.5705, Val Acc: 0.2552, Val Loss: 1.5908
+Epoch [4/20.0000], Train AUC: 0.5896, Train Acc: 0.2713, Train Loss: 1.5748, Val AUC: 0.5668, Val Acc: 0.2437, Val Loss: 1.5963
+Epoch [5/20.0000], Train AUC: 0.5870, Train Acc: 0.2722, Train Loss: 1.5773, Val AUC: 0.5657, Val Acc: 0.2244, Val Loss: 1.5997
+Epoch [6/20.0000], Train AUC: 0.5893, Train Acc: 0.2718, Train Loss: 1.5759, Val AUC: 0.5695, Val Acc: 0.2542, Val Loss: 1.5941
+Epoch [7/20.0000], Train AUC: 0.5888, Train Acc: 0.2705, Train Loss: 1.5763, Val AUC: 0.5687, Val Acc: 0.2421, Val Loss: 1.5963
+Early stopping triggered.

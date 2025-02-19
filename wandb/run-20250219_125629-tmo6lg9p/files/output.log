@@ -1,0 +1,38 @@
+Loading images: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2951/2951 [00:02<00:00, 1056.93it/s, Loaded=2951]
+C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py:142: SettingWithCopyWarning:
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  training_data_merge['race_encoded'] = label_encoder.fit_transform(training_data_merge['race'])
+Loading images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 980/980 [00:00<00:00, 1025.05it/s, Loaded=980]
+C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py:142: SettingWithCopyWarning:
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  training_data_merge['race_encoded'] = label_encoder.fit_transform(training_data_merge['race'])
+(array([0, 1, 2, 3, 4]), array([ 346,  147,  418,  351, 1689]))
+(array([0, 1, 2, 3, 4]), array([118,  54, 120, 103, 585]))
+Traceback (most recent call last):                                                                                                                                                                                                     
+Epoch [1/20.0000], Train AUC: 0.4935, Train Acc: 0.2526, Train Loss: 0.0163, Val AUC: 0.5067, Val Acc: 0.1760, Val Loss: 0.0160
+Epoch [2/20.0000], Train AUC: 0.5005, Train Acc: 0.0918, Train Loss: 0.0145, Val AUC: 0.5121, Val Acc: 0.0418, Val Loss: 0.0144
+Epoch [3/20.0000], Train AUC: 0.5028, Train Acc: 0.0298, Train Loss: 0.0133, Val AUC: 0.5091, Val Acc: 0.0120, Val Loss: 0.0132
+Epoch [4/20.0000], Train AUC: 0.5175, Train Acc: 0.0100, Train Loss: 0.0125, Val AUC: 0.5176, Val Acc: 0.0078, Val Loss: 0.0124
+Epoch [5/20.0000], Train AUC: 0.5180, Train Acc: 0.0047, Train Loss: 0.0119, Val AUC: 0.5221, Val Acc: 0.0058, Val Loss: 0.0119
+Epoch [6/20.0000], Train AUC: 0.5265, Train Acc: 0.0047, Train Loss: 0.0115, Val AUC: 0.5236, Val Acc: 0.0058, Val Loss: 0.0115
+Epoch [7/20.0000], Train AUC: 0.5368, Train Acc: 0.0047, Train Loss: 0.0111, Val AUC: 0.5191, Val Acc: 0.0058, Val Loss: 0.0112
+Epoch [8/20.0000], Train AUC: 0.5340, Train Acc: 0.0047, Train Loss: 0.0110, Val AUC: 0.5165, Val Acc: 0.0058, Val Loss: 0.0110
+Epoch [9/20.0000], Train AUC: 0.5368, Train Acc: 0.0047, Train Loss: 0.0108, Val AUC: 0.5168, Val Acc: 0.0058, Val Loss: 0.0108
+Epoch [10/20.0000], Train AUC: 0.5410, Train Acc: 0.0047, Train Loss: 0.0106, Val AUC: 0.5181, Val Acc: 0.0058, Val Loss: 0.0106
+Epoch [11/20.0000], Train AUC: 0.5401, Train Acc: 0.0047, Train Loss: 0.0105, Val AUC: 0.5208, Val Acc: 0.0058, Val Loss: 0.0106
+Epoch [12/20.0000], Train AUC: 0.5445, Train Acc: 0.0047, Train Loss: 0.0104, Val AUC: 0.5205, Val Acc: 0.0058, Val Loss: 0.0105
+Epoch [13/20.0000], Train AUC: 0.5521, Train Acc: 0.0047, Train Loss: 0.0102, Val AUC: 0.5227, Val Acc: 0.0058, Val Loss: 0.0104
+Epoch [14/20.0000], Train AUC: 0.5512, Train Acc: 0.0047, Train Loss: 0.0103, Val AUC: 0.5265, Val Acc: 0.0058, Val Loss: 0.0104
+Epoch [15/20.0000], Train AUC: 0.5550, Train Acc: 0.0047, Train Loss: 0.0102, Val AUC: 0.5232, Val Acc: 0.0058, Val Loss: 0.0103
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 558, in <module>
+    model_training(model, train_loader, val_loader, criterion,  20, device=device, multi_label=False)
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 377, in model_training
+    train_loss += loss.item()
+                  ^^^^^^^^^^^
+KeyboardInterrupt

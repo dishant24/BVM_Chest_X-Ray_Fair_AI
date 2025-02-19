@@ -1,0 +1,70 @@
+Loading images: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 5903/5903 [00:05<00:00, 1051.83it/s, Loaded=5903]
+C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py:143: SettingWithCopyWarning:
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  training_data_merge['race_encoded'] = label_encoder.fit_transform(training_data_merge['race'])
+Loading images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 980/980 [00:00<00:00, 1080.17it/s, Loaded=980]
+C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py:143: SettingWithCopyWarning:
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  training_data_merge['race_encoded'] = label_encoder.fit_transform(training_data_merge['race'])
+(array([0, 1, 2, 3, 4]), array([ 668,  278,  836,  687, 3434]))
+(array([0, 1, 2, 3, 4]), array([118,  54, 120, 103, 585]))
+Traceback (most recent call last):                                                                                                                                                                                                     
+Epoch [1/20.0000], Train AUC: 0.5434, Train Acc: 0.1915, Train Loss: 1.6003, Val AUC: 0.5311, Val Acc: 0.1886, Val Loss: 1.6024
+Epoch [2/20.0000], Train AUC: 0.5560, Train Acc: 0.2170, Train Loss: 1.5965, Val AUC: 0.5373, Val Acc: 0.2069, Val Loss: 1.6014
+Epoch [3/20.0000], Train AUC: 0.5659, Train Acc: 0.2234, Train Loss: 1.5929, Val AUC: 0.5645, Val Acc: 0.2498, Val Loss: 1.5894
+Epoch [4/20.0000], Train AUC: 0.5629, Train Acc: 0.2281, Train Loss: 1.5941, Val AUC: 0.5720, Val Acc: 0.2724, Val Loss: 1.5888
+Epoch [5/20.0000], Train AUC: 0.5749, Train Acc: 0.2404, Train Loss: 1.5890, Val AUC: 0.5520, Val Acc: 0.2468, Val Loss: 1.5956
+Epoch [6/20.0000], Train AUC: 0.5743, Train Acc: 0.2361, Train Loss: 1.5893, Val AUC: 0.5571, Val Acc: 0.2476, Val Loss: 1.5957
+Epoch [7/20.0000], Train AUC: 0.5751, Train Acc: 0.2433, Train Loss: 1.5884, Val AUC: 0.5592, Val Acc: 0.2348, Val Loss: 1.5951
+Epoch [8/20.0000], Train AUC: 0.5806, Train Acc: 0.2503, Train Loss: 1.5876, Val AUC: 0.5546, Val Acc: 0.2429, Val Loss: 1.5963
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 565, in <module>
+    model_training(model, train_loader, val_loader, criterion,  20, device=device, multi_label=False)
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 368, in model_training
+    for batch_idx, (inputs, labels) in enumerate(train_loop):
+                                       ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\tqdm\std.py", line 1181, in __iter__
+    for obj in iterable:
+               ^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\utils\data\dataloader.py", line 708, in __next__
+    data = self._next_data()
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\utils\data\dataloader.py", line 764, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\utils\data\_utils\fetch.py", line 52, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+            ~~~~~~~~~~~~^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 163, in __getitem__
+    img = self.transform(img)
+          ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\transforms\transforms.py", line 95, in __call__
+    img = t(img)
+          ^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\transforms\transforms.py", line 1372, in forward
+    return F.rotate(img, angle, self.interpolation, self.expand, self.center, fill)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\transforms\functional.py", line 1132, in rotate
+    return F_t.rotate(img, matrix=matrix, interpolation=interpolation.value, expand=expand, fill=fill)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\transforms\_functional_tensor.py", line 669, in rotate
+    return _apply_grid_transform(img, grid, interpolation, fill=fill)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\transforms\_functional_tensor.py", line 575, in _apply_grid_transform
+    img = _cast_squeeze_out(img, need_cast, need_squeeze, out_dtype)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sutariya\Desktop\Thesis\.venv\Lib\site-packages\torchvision\transforms\_functional_tensor.py", line 532, in _cast_squeeze_out
+    def _cast_squeeze_out(img: Tensor, need_cast: bool, need_squeeze: bool, out_dtype: torch.dtype) -> Tensor:
+
+KeyboardInterrupt

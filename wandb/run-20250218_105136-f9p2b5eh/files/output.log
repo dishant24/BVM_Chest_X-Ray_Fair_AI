@@ -1,0 +1,9 @@
+Loading images: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 58067/58067 [02:09<00:00, 447.65it/s, Loaded=58067]
+Loading images: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 6452/6452 [00:18<00:00, 349.97it/s, Loaded=6452]
+Traceback (most recent call last):                                                                                                                                                                                                     
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 424, in <module>
+    model_training(model, train_loader, val_loader, 20, device=device)
+  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 273, in model_training
+    assert torch.all((inputs >= -1.76) & (inputs <= 1.69)), "Inputs must be normalized in the range [-1.76, 1.69]"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Inputs must be normalized in the range [-1.76, 1.69]
