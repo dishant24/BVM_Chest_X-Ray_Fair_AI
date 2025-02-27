@@ -1,9 +1,0 @@
-Loading images:   0%|                                                                                                                                                                                         | 0/1970 [00:00<?, ?it/s]
-Traceback (most recent call last):
-  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 522, in <module>
-    train_data_images,train_labels = store_race_images_labels(training_dataset)
-                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 133, in store_race_images_labels
-    full_path = os.path.join('../../datasets', str(path))
-                ^^
-NameError: name 'os' is not defined. Did you forget to import 'os'

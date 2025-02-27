@@ -1,8 +1,0 @@
-<>:1: SyntaxWarning: invalid escape sequence '\d'
-<>:1: SyntaxWarning: invalid escape sequence '\d'
-C:\Users\sutariya\AppData\Local\Temp\ipykernel_11288\1595071097.py:1: SyntaxWarning: invalid escape sequence '\d'
-  demographic_data = pd.read_csv('..\\..\datasets\CheXpert-v1.0-small\demographics_CXP.csv')
-C:\Users\sutariya\AppData\Local\Temp\ipykernel_11288\2821195456.py:1: DeprecationWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.
-  training_data_merge = training_data_merge.groupby('subject_id', group_keys=False).apply(select_most_positive_sample).reset_index(drop=True)
-torch.Size([64, 3, 64, 64]) torch.Size([64])
-                                                                                               

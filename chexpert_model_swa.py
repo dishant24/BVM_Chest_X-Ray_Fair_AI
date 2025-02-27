@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import copy
 import os
 import matplotlib.pyplot as plt
 import torch
@@ -15,6 +16,7 @@ torch.cuda.empty_cache()
 from torch.utils.data import WeightedRandomSampler
 from sklearn.metrics import roc_curve, auc, roc_auc_score, f1_score, accuracy_score
 import torch.nn.functional as F
+from torch.optim.swa_utils import AveragedModel, SWALR, update_bn
 from sklearn.preprocessing import label_binarize
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
@@ -48,20 +50,6 @@ def select_most_positive_sample(group):
         selected_sample = group.sample(n=1).iloc[0]
     
     return selected_sample
-
-def save_image_tensor(dataset, save_path):
-    if not os.path.exists(save_path):
-        data_images = []
-        paths = tqdm(dataset['Path'], desc="Loading images")
-        for path in paths:
-            full_path = '../../datasets' + '/' + str(path)
-            img = read_image(full_path)
-            data_images.append(img)
-            paths.set_postfix({'Loaded': len(data_images)})
-        torch.save(data_images, save_path)
-    else:
-        print(f'File {save_path} already exists. Skipping save.')
-
 
 def sampling_datasets(training_dataset):
 
@@ -108,9 +96,9 @@ def split_and_save_datasets(dataset, train_path='train.csv', val_path='val.csv',
     val_data.to_csv(val_path, index=False)
 
 
-def store_diagnostic_images_labels(training_data_merge, path, device):
+def store_diagnostic_images_labels(training_data_merge, path):
     
-    data_images = torch.load(path, map_location=device, weights_only=True)
+    data_images = torch.load(path)
     data_labels = training_data_merge[['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
     'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
     'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture', 'Support Devices']].values
@@ -118,7 +106,7 @@ def store_diagnostic_images_labels(training_data_merge, path, device):
     return data_images, data_labels
 
 
-def store_race_images_labels(training_data_merge, path, device):
+def store_race_images_labels(training_data_merge, path):
     """
     Loads images and processes race labels for multi-class classification.
 
@@ -130,7 +118,7 @@ def store_race_images_labels(training_data_merge, path, device):
     - data_labels (Tensor): Tensor of race class labels.
     """
     label_encoder = LabelEncoder()
-    data_images = torch.load(path, map_location=device, weights_only=True)
+    data_images = torch.load(path)
     # Keep only top 5 race categories
     top_races = training_data_merge['race'].value_counts().index[:5]
     training_data_merge = training_data_merge[training_data_merge['race'].isin(top_races)]
@@ -140,6 +128,19 @@ def store_race_images_labels(training_data_merge, path, device):
     data_labels = torch.tensor(training_data_merge['race_encoded'].values, dtype=torch.long)
 
     return data_images, data_labels
+
+def save_image_tensor(dataset, save_path):
+    if not os.path.exists(save_path):
+        data_images = []
+        paths = tqdm(dataset['Path'], desc="Loading images")
+        for path in paths:
+            full_path = '/deep_learning/output/Sutariya/chexpert' + '/' + str(path)
+            img = read_image(full_path)
+            data_images.append(img)
+            paths.set_postfix({'Loaded': len(data_images)})
+        torch.save(data_images, save_path)
+    else:
+        print(f'File {save_path} already exists. Skipping save.')
 
         
 class MyDataset(Dataset):
@@ -180,40 +181,23 @@ def prepare_dataloaders(data_images, labels, sampler=None, shuffle=True):
 
     return data_loader
 
-
 class DenseNet_Model(nn.Module):
-    def __init__(self, weights_path, device, out_feature):
-        super().__init__()
-        self.out_feature = out_feature
-        
-        # Initialize DenseNet121 with default architecture (no automatic weights download)
-        self.encoder = torchvision.models.densenet121(weights=None)
-        
-        
-        state_dict = torch.load(weights_path, map_location=device)  # Load weights to CPU first
-        
-        # Load the weights into the encoder model
-        missing, unexpected = self.encoder.load_state_dict(state_dict, strict=False)
-        
-        if missing:
-            print(f"Missing keys: {missing}")
-        if unexpected:
-            print(f"Unexpected keys: {unexpected}")
-        
-        print("Weights loaded successfully.")
-        
-        # Add additional classification layers
-        self.relu = nn.ReLU()
-        self.clf = nn.Linear(1000, out_feature)
+     def __init__(self, weights, out_feature):
+          super().__init__()
+          self.weight = weights
+          self.out_feature = out_feature
+          self.encoder = torchvision.models.densenet121(weights=weights)
+          self.relu = nn.ReLU()
+          self.clf = nn.Linear(1000, out_feature)
 
-    def encode(self, x):
-        return self.encoder(x)
+     def encode(self, x):
+          return self.encoder(x)
 
-    def forward(self, x):
-        z = self.encode(x)
-        z = self.relu(z)
-        return self.clf(z)
-    
+     def forward(self, x):
+          z = self.encode(x)
+          z = self.relu(z)
+          return self.clf(z)
+
 
 def log_roc_auc(y_true, y_scores, multiclass=True, log_name="roc_auc_curve"):
     """
@@ -353,6 +337,7 @@ class FocalLoss(nn.Module):
             return focal_loss
         
 
+
 def model_training(model, train_loader, val_loader, loss_function, num_epochs=10, device=None, multi_label=True):
     """
     Trains a model for either multi-label or multi-class classification.
@@ -369,106 +354,82 @@ def model_training(model, train_loader, val_loader, loss_function, num_epochs=10
     - None
     """
     model = model.to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.0001)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.0005)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=5)
     early_stopper = EarlyStopper(patience=5)
-    print('Start Traininig')
+    
+    # SWA Setup
+    swa_model = AveragedModel(model)
+    swa_scheduler = SWALR(optimizer, anneal_strategy="cos", anneal_epochs=3, swa_lr=0.005)
+    swa_start_epoch = max(num_epochs - 3, 0)
 
+    best_model_weights = copy.deepcopy(model.state_dict())
     for epoch in range(num_epochs):
         ### === Training Phase === ###
         model.train()
         train_loss = 0.0
         all_train_labels, all_train_preds = [], []
 
-        for batch_idx, (inputs, labels) in enumerate(train_loader):
+        for inputs, labels in train_loader:
             inputs, labels = inputs.to(device), labels.to(device)
-            assert isinstance(inputs, torch.Tensor), "inputs must be a torch.Tensor"
-            assert isinstance(labels, torch.Tensor), "labels must be a torch.Tensor"
-            assert inputs.dim() >= 2, f"inputs must have at least 2 dimensions, got {inputs.shape}"
-            assert labels.dim() >= 2, f"labels must have at least 2 dimensions, got {labels.shape}"
-
             optimizer.zero_grad()
-
             outputs = model(inputs)
-            assert outputs.shape[0] == labels.shape[0], "Batch size mismatch"
-            
-            loss = loss_function(outputs, labels)  # Compute loss
+            loss = loss_function(outputs, labels)
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
 
             # Convert predictions
-            if multi_label:
-                preds = torch.sigmoid(outputs).detach().cpu().numpy()  # Multi-label: Use sigmoid
-            else:
-                preds = torch.softmax(outputs, dim=1).detach().cpu().numpy()  # Multi-class: Use softmax
-
+            preds = torch.sigmoid(outputs).detach().cpu().numpy() if multi_label else torch.softmax(outputs, dim=1).detach().cpu().numpy()
             all_train_labels.extend(labels.cpu().numpy())
             all_train_preds.extend(preds)
-
         train_loss /= len(train_loader)
 
         ### === Validation Phase === ###
         model.eval()
         val_loss = 0.0
         all_val_labels, all_val_preds = [], []
-
         with torch.no_grad():
-            for batch_idx, (inputs, labels) in enumerate(val_loader):
+            for inputs, labels in val_loader:
                 inputs, labels = inputs.to(device), labels.to(device)
-                assert isinstance(inputs, torch.Tensor), "inputs must be a torch.Tensor"
-                assert isinstance(labels, torch.Tensor), "labels must be a torch.Tensor"
-                assert inputs.dim() >= 2, f"inputs must have at least 2 dimensions, got {inputs.shape}"
-                assert labels.dim() >= 2, f"labels must have at least 2 dimensions, got {labels.shape}"
-
                 outputs = model(inputs)
                 loss = loss_function(outputs, labels)
                 val_loss += loss.item()
-
-                if multi_label:
-                    preds = torch.sigmoid(outputs).detach().cpu().numpy()  # Multi-label
-                else:
-                    preds = torch.softmax(outputs, dim=1).detach().cpu().numpy()  # Multi-class
-
+                preds = torch.sigmoid(outputs).detach().cpu().numpy() if multi_label else torch.softmax(outputs, dim=1).detach().cpu().numpy()
                 all_val_labels.extend(labels.cpu().numpy())
                 all_val_preds.extend(preds)
-
         val_loss /= len(val_loader)
         scheduler.step(val_loss)
+        
+        # Compute Metrics
+        auc_roc_train = roc_auc_score(all_train_labels, all_train_preds, average="weighted")
+        auc_roc_val = roc_auc_score(all_val_labels, all_val_preds, average="weighted")
 
-        # Compute AUC-ROC (Multi-label) or Accuracy (Multi-class)
-        if multi_label:
-            auc_roc_train = roc_auc_score(all_train_labels, all_train_preds, average="weighted")
-            auc_roc_val = roc_auc_score(all_val_labels, all_val_preds, average="weighted")
-        else:
-            auc_roc_train = roc_auc_score(all_train_labels, all_train_preds, average='weighted', multi_class='ovr')
-            auc_roc_val = roc_auc_score(all_val_labels, all_val_preds, average='weighted', multi_class='ovr')
+        # Apply SWA in the last 3 epochs or if early stopping is about to trigger
+        if epoch >= swa_start_epoch:
+            swa_model.update_parameters(model)
+            swa_scheduler.step()
+        
+        # Print Metrics
+        print(f"Epoch [{epoch+1}/{num_epochs}], Train AUC: {auc_roc_train:.4f}, Train Loss: {train_loss:.4f}, Val AUC: {auc_roc_val:.4f}, Val Loss: {val_loss:.4f}")
 
-        # Log results
-        wandb.log({"Training AUC": auc_roc_train, "Validation AUC": auc_roc_val})
-        log_roc_auc(all_train_labels, all_train_preds, log_name="Training ROC")
-        log_roc_auc(all_val_labels, all_val_preds, log_name="Validation ROC")
-        # log_confusion_matrix(all_train_labels, all_train_preds, log_name="Training Confusion Matrix")
-        # log_confusion_matrix(all_val_labels, all_val_preds, log_name="Validation Confusion Matrix")
-
-        # Compute F1 Score (Thresholding required for multi-label)
-        if multi_label:
-            train_preds_binary = (np.array(all_train_preds) > 0.4).astype(int)
-            val_preds_binary = (np.array(all_val_preds) > 0.4).astype(int)
-            train_acc = f1_score(all_train_labels, train_preds_binary, average='weighted')
-            val_acc = f1_score(all_val_labels, val_preds_binary, average='weighted')
-        else:
-            train_pred_classes = np.argmax(all_train_preds, axis=1)
-            val_pred_classes = np.argmax(all_val_preds, axis=1)
-            train_acc = f1_score(all_train_labels, train_pred_classes, average='weighted')
-            val_acc = f1_score(all_val_labels, val_pred_classes, average='weighted')
-
-        print(f"Epoch [{epoch+1}/{num_epochs:.4f}], Train AUC: {auc_roc_train:.4f}, Train Acc: {train_acc:.4f}, Train Loss: {train_loss:.4f}, Val AUC: {auc_roc_val:.4f}, Val Acc: {val_acc:.4f}, Val Loss: {val_loss:.4f}")
-
-        # Early stopping
+        # Early Stopping Check
         if early_stopper.early_stop(val_loss):
-            print("Early stopping triggered.")
+            print("Early stopping triggered. Switching to SWA.")
             break
+
+    # Load best model before switching to SWA
+    model.load_state_dict(best_model_weights)
+    swa_model.train()  
+
+    with torch.no_grad():
+        for inputs, _ in train_loader:
+            inputs = inputs.to(device)
+            _ = swa_model(inputs) 
+
+    # Switch to SWA model for final evaluation
+    model = swa_model
+    print("Training complete...")
 
 
 def testing_model(test_loader, model, device=None, multi_label= True):
@@ -536,36 +497,37 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     separate_split = True
 
-    # if not os.path.exists("/deep_learning/output/Sutariya/chexpert/wandb"):
-    #     os.mkdir("/deep_learning/output/Sutariya/chexpert/wandb")
-    # os.environ["WANDB_DIR"] = os.path.abspath("/deep_learning/output/Sutariya/chexpert/wandb")
+    if not os.path.exists("/deep_learning/output/Sutariya/chexpert/wandb"):
+        os.mkdir("/deep_learning/output/Sutariya/chexpert/wandb")
+    os.environ["WANDB_DIR"] = os.path.abspath("/deep_learning/output/Sutariya/chexpert/wandb")
 
-    # wandb.init(
-    # project="cxr_preprocessing",
-    # dir="/deep_learning/output/Sutariya/chexpert/wandb",
-    # config={
-    # "learning_rate": 0.0005,
-    # "Task": "diagnostic",
-    # "Uncertain Labels" : "-1 = 1, NAN = 0",
-    # "epochs": 30,
-    # "Augmentation": 'Yes',
-    # "optimiser": "AdamW",
-    # "architecture": "DenseNet121",
-    # "dataset": "CheXpert",
-    # "Standardization": 'Yes'
-    # }
-    # )
+    wandb.init(
+    project="cxr_preprocessing",
+    dir="/deep_learning/output/Sutariya/chexpert/wandb",
+    config={
+    "learning_rate": 0.001,
+    "Task": "diagnostic",
+    "Uncertain Labels" : "-1 = 1, NAN = 0",
+    "epochs": 30,
+    "Augmentation": 'Yes',
+    "optimiser": "SGD",
+    "SWA":'Yes',
+    "architecture": "DenseNet121",
+    "dataset": "CheXpert",
+    "Standardization": 'Yes'
+    }
+    )
 
     # Paths to the output files
-    train_output_path = r'..\..\datasets\CheXpert-v1.0-small\train_clean_dataset.csv'
-    val_output_path = r'..\..\datasets\CheXpert-v1.0-small\validation_clean_dataset.csv'
+    train_output_path = '/deep_learning/output/Sutariya/chexpert/train_clean_dataset.csv'
+    val_output_path = '/deep_learning/output/Sutariya/chexpert/validation_clean_dataset.csv'
 
     # Run the code block only if the output files do not exist
     if not (os.path.exists(train_output_path) and os.path.exists(val_output_path)):
         
         # Input file paths
-        training_file_path = r'..\..\datasets\CheXpert-v1.0-small\train.csv'
-        demographic_data_path = r'..\..\datasets\CheXpert-v1.0-small\demographics_CXP.csv'
+        training_file_path = '/deep_learning/output/Sutariya/chexpert/train.csv'
+        demographic_data_path = '/deep_learning/output/Sutariya/chexpert/demographics_CXP.csv'
         
         # Load the data
         training_data = file_load(training_file_path)
@@ -585,20 +547,21 @@ if __name__ == '__main__':
 
     training_dataset = pd.read_csv(train_output_path)
     validation_dataset = pd.read_csv(val_output_path)
-    save_image_tensor(dataset=training_dataset, save_path= r'..\..\datasets\CheXpert-v1.0-small\train_images_tensor.pt')
-    save_image_tensor(dataset=validation_dataset, save_path= r'..\..\datasets\CheXpert-v1.0-small\validation_images_tensor.pt')
-    train_data_images,train_labels = store_diagnostic_images_labels(training_dataset, r'..\..\datasets\CheXpert-v1.0-small\train_images_tensor.pt', device)
-    val_data_images, val_labels = store_diagnostic_images_labels(validation_dataset, r'..\..\datasets\CheXpert-v1.0-small\validation_images_tensor.pt', device)
+    
+    save_image_tensor(dataset=training_dataset, save_path='/deep_learning/output/Sutariya/chexpert/train_images_tensor.pt')
+    save_image_tensor(dataset=validation_dataset, save_path='/deep_learning/output/Sutariya/chexpert/validation_images_tensor.pt')
+
+    train_data_images,train_labels = store_diagnostic_images_labels(training_dataset, '/deep_learning/output/Sutariya/chexpert/train_images_tensor.pt')
+    val_data_images, val_labels = store_diagnostic_images_labels(validation_dataset, '/deep_learning/output/Sutariya/chexpert/validation_images_tensor.pt')
     train_loader = prepare_dataloaders(train_data_images, train_labels, shuffle=True)
     val_loader = prepare_dataloaders(val_data_images, val_labels)
     
     criterion = nn.BCEWithLogitsLoss()
-    
-    model = DenseNet_Model('../../densenet121_weights.pth', device, out_feature=14)
-    
+    model = DenseNet_Model(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1, out_feature=14)
+
     model_training(model, train_loader, val_loader, criterion, 30, device=device, multi_label=True)
-    print('Training Completed...')
-    torch.save(model.state_dict(), 'daignostic_model_1.pth')
+
+    torch.save(model.state_dict(), 'daignostic_model_swa.pth')
 
     # test_file_path =  r'..\..\datasets\CheXpert-v1.0-small\valid.csv'
     # demographic_data_path = r'..\..\datasets\CheXpert-v1.0-small\demographics_CXP.csv'

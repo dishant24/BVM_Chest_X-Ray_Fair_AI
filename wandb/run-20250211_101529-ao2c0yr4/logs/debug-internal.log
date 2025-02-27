@@ -1,7 +1,0 @@
-{"time":"2025-02-11T10:15:30.4545694+01:00","level":"INFO","msg":"stream: starting","core version":"0.19.5","symlink path":"C:\\Users\\sutariya\\Desktop\\Thesis\\CXR_Preprocessing\\cxr_preprocessing\\wandb\\run-20250211_101529-ao2c0yr4\\logs\\debug-core.log"}
-{"time":"2025-02-11T10:15:30.7502804+01:00","level":"INFO","msg":"created new stream","id":"ao2c0yr4"}
-{"time":"2025-02-11T10:15:30.7508089+01:00","level":"INFO","msg":"stream: started","id":"ao2c0yr4"}
-{"time":"2025-02-11T10:15:30.7502804+01:00","level":"INFO","msg":"handler: started","stream_id":"ao2c0yr4"}
-{"time":"2025-02-11T10:15:30.7508089+01:00","level":"INFO","msg":"sender: started","stream_id":"ao2c0yr4"}
-{"time":"2025-02-11T10:15:30.7508089+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"ao2c0yr4"}
-{"time":"2025-02-11T10:15:31.0765311+01:00","level":"INFO","msg":"Starting system monitor"}

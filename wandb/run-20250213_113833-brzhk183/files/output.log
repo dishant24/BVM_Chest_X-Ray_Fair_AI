@@ -1,2 +1,0 @@
-C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py:49: DeprecationWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.
-  training_dataset = training_dataset.groupby('subject_id', group_keys=False).apply(select_most_positive_sample)

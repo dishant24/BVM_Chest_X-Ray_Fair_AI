@@ -1,9 +1,0 @@
-Loading images: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 58072/58072 [01:41<00:00, 572.31it/s, Loaded=58072]
-Loading images: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 6453/6453 [00:11<00:00, 574.43it/s, Loaded=6453]
-Traceback (most recent call last):                                                                                                                                                                                    
-  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 388, in <module>
-    model_training(model, train_loader, val_loader, 20, device=device)
-  File "C:\Users\sutariya\Desktop\Thesis\CXR_Preprocessing\cxr_preprocessing\chexpert_model.py", line 285, in model_training
-    for batch_idx, inputs, vl_labels in enumerate(val_loop):
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-ValueError: not enough values to unpack (expected 3, got 2)

@@ -1,7 +1,0 @@
-{"time":"2025-02-14T11:45:08.5923379+01:00","level":"INFO","msg":"stream: starting","core version":"0.19.5","symlink path":"C:\\Users\\sutariya\\Desktop\\Thesis\\CXR_Preprocessing\\cxr_preprocessing\\wandb\\run-20250214_114508-1pgpfdbi\\logs\\debug-core.log"}
-{"time":"2025-02-14T11:45:08.9354308+01:00","level":"INFO","msg":"created new stream","id":"1pgpfdbi"}
-{"time":"2025-02-14T11:45:08.9354308+01:00","level":"INFO","msg":"stream: started","id":"1pgpfdbi"}
-{"time":"2025-02-14T11:45:08.9354308+01:00","level":"INFO","msg":"handler: started","stream_id":"1pgpfdbi"}
-{"time":"2025-02-14T11:45:08.9354308+01:00","level":"INFO","msg":"sender: started","stream_id":"1pgpfdbi"}
-{"time":"2025-02-14T11:45:08.9359339+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"1pgpfdbi"}
-{"time":"2025-02-14T11:45:09.2145076+01:00","level":"INFO","msg":"Starting system monitor"}
