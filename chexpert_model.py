@@ -9,16 +9,12 @@ from torchvision.io import read_image
 from tqdm import tqdm
 import torchvision
 import torch.nn as nn
-from skimage import exposure
-from skimage.exposure import match_histograms
 torch.cuda.empty_cache()
-from torch.utils.data import WeightedRandomSampler
 from sklearn.metrics import roc_curve, auc, roc_auc_score, f1_score, accuracy_score
 import torch.nn.functional as F
 from sklearn.preprocessing import label_binarize
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
-from sklearn.utils.class_weight import compute_class_weight
 from sklearn.utils import shuffle
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
@@ -30,7 +26,6 @@ def file_load(file_path):
     dataset = pd.read_csv(file_path)
     return dataset
 
-# Select the patient which has most positive disease
 def select_most_positive_sample(group):
 
     disease_columns = [
@@ -44,14 +39,14 @@ def select_most_positive_sample(group):
     positive_cases = group[group['positive_count'] > 0]
     
     if not positive_cases.empty:
-
-        selected_sample = positive_cases.loc[positive_cases['positive_count'].idxmax()]
+        selected_sample = positive_cases[positive_cases['positive_count'].idxmax()].copy()
     else:
         selected_sample = group.sample(n=1).iloc[0]
     
     return selected_sample
 
 
+# Select the single subject_id per patient which has most positive disease 
 def sampling_datasets(training_dataset):
 
     training_dataset = training_dataset.groupby('subject_id', group_keys=False).apply(select_most_positive_sample)
@@ -96,7 +91,7 @@ def split_and_save_datasets(dataset, train_path='train.csv', val_path='val.csv',
     val_data.to_csv(val_path, index=False)
 
 
-def store_diagnostic_images_labels(training_data_merge, path, device):
+def store_diagnostic_images_labels(dataset, path, device):
     """
     Loads images and processes diagnostic labels.
 
@@ -107,42 +102,9 @@ def store_diagnostic_images_labels(training_data_merge, path, device):
     - data_images (List[Tensor]): List of image tensors.
     - data_labels (Tensor): Tensor of diagnostic class labels.
     """
-    data_images = torch.load(path, map_location=device, weights_only=True)
-    data_labels = training_data_merge[['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
-    'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
-    'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture', 'Support Devices']].values
-    data_labels = torch.tensor(data_labels, dtype=torch.float32)
-    return data_images, data_labels
 
-
-def store_race_images_labels(training_data_merge, path, device):
-    """
-    Loads images and processes race labels for multi-class classification.
-
-    Args:
-    - training_data_merge (DataFrame): Contains image paths and race labels.
-
-    Returns:
-    - data_images (List[Tensor]): List of image tensors.
-    - data_labels (Tensor): Tensor of race class labels.
-    """
-    label_encoder = LabelEncoder()
-    data_images = torch.load(path, map_location=device, weights_only=True)
-
-    # Keep only top 5 race categories
-    top_races = training_data_merge['race'].value_counts().index[:5]
-    training_data_merge = training_data_merge[training_data_merge['race'].isin(top_races)]
-
-    # Convert race categories into categorical integer labels
-    training_data_merge['race_encoded'] = label_encoder.fit_transform(training_data_merge['race'])
-    data_labels = torch.tensor(training_data_merge['race_encoded'].values, dtype=torch.long)
-
-    return data_images, data_labels
-
-
-# Save Raw image tensors into .pt file
-def save_image_tensor(dataset, save_path):
-    if not os.path.exists(save_path):
+    
+    if not os.path.exists(path):
         data_images = []
         paths = tqdm(dataset['Path'], desc="Loading images")
         for path in paths:
@@ -150,9 +112,56 @@ def save_image_tensor(dataset, save_path):
             img = read_image(full_path)
             data_images.append(img)
             paths.set_postfix({'Loaded': len(data_images)})
+        torch.save(data_images, path)
+    else:
+        data_images = torch.load(path, map_location=device, weights_only=True)
+
+    data_labels = training_data_merge[['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
+    'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
+    'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture', 'Support Devices']].values
+    data_labels = torch.tensor(data_labels, dtype=torch.float32)
+    
+    return data_images, data_labels
+
+def store_race_images_labels(dataset, save_path, device):
+    """
+    Loads images and processes race labels for multi-class classification.
+
+    Args:
+    - dataset (DataFrame): Contains image paths and race labels.
+    - save_path (str): Path to save/load image tensors.
+    - device (torch.device): Device for loading tensors.
+
+    Returns:
+    - data_images (List[Tensor]): List of image tensors.
+    - data_labels (Tensor): Tensor of race class labels.
+    """
+    label_encoder = LabelEncoder()
+
+    # Keep only top 3 race categories and create a copy
+    top_races = dataset['race'].value_counts().index[:3]
+    dataset = dataset[dataset['race'].isin(top_races)].copy()
+
+    if not os.path.exists(save_path):
+        data_images = []
+        paths = tqdm(dataset['Path'], desc="Loading images")
+        for path in paths:
+            full_path = os.path.join('/deep_learning/output/Sutariya/chexpert', str(path))
+            img = read_image(full_path)
+            data_images.append(img)
+            paths.set_postfix({'Loaded': len(data_images)})
         torch.save(data_images, save_path)
     else:
-        print(f'File {save_path} already exists. Skipping save.')
+        data_images = torch.load(save_path, map_location=device, weights_only=True)
+
+    # ✅ Corrected assignment using .loc[]
+    dataset.loc[:, 'race_encoded'] = label_encoder.fit_transform(dataset['race'])
+
+    # Convert to PyTorch tensor
+    data_labels = torch.tensor(dataset['race_encoded'].values, dtype=torch.long)
+    
+    return data_images, data_labels
+
 
         
 class MyDataset(Dataset):
@@ -196,7 +205,7 @@ class DenseNet_Model(nn.Module):
     def __init__(self, weights, out_feature):
         super().__init__()
         self.out_feature = out_feature
-        self.encoder = torchvision.models.densenet121(weights=None) # Adapt the architecture to initial paper: The limits of fair medical imaging
+        self.encoder = torchvision.models.densenet121(weights=None) # Adapt the architecture to initial paper: The limits of fair medical imaging almost all other papers
         self.relu = nn.ReLU()
         self.clf = nn.Linear(1000, out_feature)
 
@@ -208,9 +217,10 @@ class DenseNet_Model(nn.Module):
         z = self.relu(z)
         return self.clf(z)
  
-def model_build_race(path, model):
+# Help to build model for race prediction training
+def model_build_race(path, model, device):
 
-    state_dict = torch.load(path, map_location=device)
+    state_dict = torch.load(path, map_location=device, weights_only=True)
     state_dict.pop("clf.weight", None)
     state_dict.pop("clf.bias", None)
     
@@ -219,37 +229,37 @@ def model_build_race(path, model):
     for params in model.encoder.parameters():
         params.requires_grad = False
 
-    for params in model.layer1.parameters():
-        params.requires_grad = False
-
     return model
  
 
-def log_roc_auc(y_true, y_scores, multiclass=True, log_name="roc_auc_curve"):
+def log_roc_auc(y_true, y_scores, multilabel=True, log_name="roc_auc_curve", task_diagnostic= True):
     """
     Plots the ROC curve for multi-label or multi-class classification.
 
     Args:
     - y_true (np.array): True labels.
-        * If multiclass=False: multi-hot encoded (multi-label).
-        * If multiclass=True: single-label integer encoded.
+        * If multilabel=False: multi-hot encoded (multi-label).
+        * If multilabel=True: single-label integer encoded.
     - y_scores (np.array): Model's predicted probabilities.
-    - multiclass (bool): Set True for multi-class, False for multi-label.
+    - multilabel (bool): Set True for multi-class, False for multi-label.
     - log_name (str): Name for logging.
 
     Returns:
     - None
     """
-    labels = ['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
+    if task_diagnostic:
+        labels = ['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
     'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
     'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
     'Support Devices']
+    else:
+        labels = demographic_data['race'].value_counts().index.values
     y_true = np.array(y_true)
     y_scores = np.array(y_scores)
     
     fig, ax = plt.subplots(figsize=(7, 7))
 
-    if multiclass:
+    if not multilabel:
         # Binarize y_true for one-vs-rest ROC curve
         num_classes = y_scores.shape[1]
         y_true_bin = label_binarize(y_true, classes=np.arange(num_classes))
@@ -272,7 +282,7 @@ def log_roc_auc(y_true, y_scores, multiclass=True, log_name="roc_auc_curve"):
     ax.set_ylim([0.0, 1.05])
     ax.set_xlabel("False Positive Rate")
     ax.set_ylabel("True Positive Rate")
-    ax.set_title("ROC Curve" + (" (Multi-Class)" if multiclass else " (Multi-Label)"))
+    ax.set_title("ROC Curve" + (" (Multi-Class)" if multilabel else " (Multi-Label)"))
 
     # Adjust legend size
     ax.legend(loc="lower right", fontsize=8 if num_classes > 10 else 10)
@@ -360,7 +370,7 @@ def model_training(model, train_loader, val_loader, loss_function, num_epochs=10
     """
     
     model = model.to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.0001)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.0001, weight_decay=0.001)
     # Add scheduler to make model more robust and reduce learning rate at plateau
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=5)
     early_stopper = EarlyStopper(patience=5)
@@ -470,7 +480,7 @@ def testing_model(test_loader, model, device=None, multi_label= True):
                 preds = torch.softmax(outputs, dim=1).detach().cpu().numpy()
 
             all_test_labels.extend(labels.cpu().numpy())  
-            all_test_preds.extend(preds) 
+            all_test_preds.extend(preds)
 
     if multi_label:
         auc_roc_test = roc_auc_score(all_test_labels, all_test_preds, average="macro")
@@ -486,42 +496,30 @@ def testing_model(test_loader, model, device=None, multi_label= True):
     log_confusion_matrix(all_test_labels, all_test_preds, log_name="Testing Confusion Matrix")
     print(f"Test ROC-AUC Score: {auc_roc_test:.4f}, Testing Accuracy Score: {test_acc:.4f}")
 
-def model_build_transfer(model):
-
-    state_dict = torch.load("diagnostic_model.pth", map_location=device)
-    state_dict.pop("clf.weight", None)
-    state_dict.pop("clf.bias", None)
-    
-    model.load_state_dict(state_dict, strict=False)
-
-    for params in model.encoder.parameters():
-        params.requires_grad = False
-
-    return model
-
 if __name__ == '__main__':
     
     torch.cuda.empty_cache()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    random_state = 80
+    random_state = 90
     training = True
-    task_diagnostic = True
+    task_diagnostic = False
 
     if not os.path.exists("/deep_learning/output/Sutariya/chexpert/wandb"):
         os.mkdir("/deep_learning/output/Sutariya/chexpert/wandb")
     os.environ["WANDB_DIR"] = os.path.abspath("/deep_learning/output/Sutariya/chexpert/wandb")
 
     wandb.init(
-    project="cxr_preprocessing",
+    project="cxr_preprocessing_race",
     dir="/deep_learning/output/Sutariya/chexpert/wandb",
     config={
-    "learning_rate": 0.001,
+    "learning_rate": 0.0001,
     "Task": "diagnostic" if task_diagnostic else "Race",
+    "save_model_file_name" : f'daignostic_model_{random_state}' if task_diagnostic else f'race_model_{random_state}',
     "Uncertain Labels" : "-1 = 0, NAN = 0",
-    "epochs": 80,
+    "epochs": 20,
     "Augmentation": 'Yes',
     "optimiser": "AdamW",
-    "SWA":'Yes',
+    "SWA":'No',
     "architecture": "DenseNet121",
     "dataset": "CheXpert",
     "Standardization": 'Yes'
@@ -557,28 +555,25 @@ if __name__ == '__main__':
 
         training_dataset = pd.read_csv(train_output_path)
         validation_dataset = pd.read_csv(val_output_path)
-        
-        save_image_tensor(dataset=training_dataset, save_path='/deep_learning/output/Sutariya/chexpert/train_images_tensor.pt')
-        save_image_tensor(dataset=validation_dataset, save_path='/deep_learning/output/Sutariya/chexpert/validation_images_tensor.pt')
 
         if task_diagnostic:
-            train_data_images,train_labels = store_diagnostic_images_labels(training_dataset, '/deep_learning/output/Sutariya/chexpert/train_images_tensor.pt', device)
+            train_data_images, train_labels = store_diagnostic_images_labels(training_dataset, '/deep_learning/output/Sutariya/chexpert/train_images_tensor.pt', device)
             val_data_images, val_labels = store_diagnostic_images_labels(validation_dataset, '/deep_learning/output/Sutariya/chexpert/validation_images_tensor.pt', device)  
             criterion = nn.BCEWithLogitsLoss()
             model = DenseNet_Model(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1, out_feature=14)
         else:
-            train_data_images,train_labels = store_race_images_labels(training_dataset, '/deep_learning/output/Sutariya/chexpert/train_images_tensor.pt', device)
-            val_data_images, val_labels = store_race_images_labels(validation_dataset, '/deep_learning/output/Sutariya/chexpert/validation_images_tensor.pt', device)
+            train_data_images,train_labels = store_race_images_labels(training_dataset, '/deep_learning/output/Sutariya/chexpert/train_race_images_tensor.pt', device)
+            val_data_images, val_labels = store_race_images_labels(validation_dataset, '/deep_learning/output/Sutariya/chexpert/validation_race_images_tensor.pt', device)
             criterion = nn.CrossEntropyLoss()
             base_model = DenseNet_Model(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1, out_feature=3)
-            model = model_build_race('/deep_learning/output/Sutariya/chexpert/daignostic_model_60.pth', base_model, device)
+            model = model_build_race('/deep_learning/output/Sutariya/chexpert/daignostic_model_80.pth', base_model, device)
 
         train_data_shuffel_images, train_shuffel_labels = shuffle(train_data_images, train_labels, random_state=random_state)
         val_data_shuffel_images, val_shuffel_labels = shuffle(val_data_images, val_labels, random_state=random_state)
-        train_loader = prepare_dataloaders(train_data_shuffel_images, train_shuffel_labels)
-        val_loader = prepare_dataloaders(val_data_shuffel_images, val_shuffel_labels)
+        train_loader = prepare_dataloaders(train_data_shuffel_images, train_shuffel_labels, shuffle=True)
+        val_loader = prepare_dataloaders(val_data_shuffel_images, val_shuffel_labels, shuffle=True)
 
-        model_training(model, train_loader, val_loader, criterion, 30, device=device, multi_label=True)
+        model_training(model, train_loader, val_loader, criterion, 30, device=device, multi_label=False)
         
         torch.save(model.state_dict(), f'daignostic_model_{random_state}.pth') if task_diagnostic else torch.save(model.state_dict(), f'race_model_{random_state}.pth') 
     
@@ -591,13 +586,12 @@ if __name__ == '__main__':
 
         testing_dataset = merge_dataframe(testing_data, demographic_data)
         testing_dataset = cleaning_datasets(testing_dataset)
-        save_image_tensor(testing_dataset, '/deep_learning/output/Sutariya/chexpert/test_images_tensor.pt')
         if task_diagnostic:
             test_data_images, test_labels = store_diagnostic_images_labels(testing_dataset, '/deep_learning/output/Sutariya/chexpert/test_images_tensor.pt', device)
-            weights = torch.load('daignostic_model_50.pth', map_location=device, weights_only=True)
+            weights = torch.load('daignostic_model_80.pth', map_location=device, weights_only=True)
             test_model = DenseNet_Model(weights=None, out_feature=14)
         else:
-            test_data_images, test_labels = store_race_images_labels(testing_dataset, '/deep_learning/output/Sutariya/chexpert/test_images_tensor.pt', device)
+            test_data_images, test_labels = store_race_images_labels(testing_dataset, '/deep_learning/output/Sutariya/chexpert/test_race_images_tensor.pt', device)
             weights = torch.load('race_model_50.pth', map_location=device, weights_only=True)
             test_model = DenseNet_Model(weights=None, out_feature=3)
 
