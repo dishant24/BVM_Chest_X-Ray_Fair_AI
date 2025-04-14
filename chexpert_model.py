@@ -20,11 +20,10 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix
 import wandb
 
-
-
 def file_load(file_path):
     dataset = pd.read_csv(file_path)
     return dataset
+
 
 def select_most_positive_sample(group):
 
@@ -39,7 +38,8 @@ def select_most_positive_sample(group):
     positive_cases = group[group['positive_count'] > 0]
     
     if not positive_cases.empty:
-        selected_sample = positive_cases[positive_cases['positive_count'].idxmax()].copy()
+
+        selected_sample = positive_cases.loc[positive_cases['positive_count'].idxmax()]
     else:
         selected_sample = group.sample(n=1).iloc[0]
     
@@ -53,6 +53,7 @@ def sampling_datasets(training_dataset):
     training_dataset.drop(columns=['positive_count'], inplace=True, errors='ignore')
     
     return training_dataset
+
 
 # Merge the data with demographic data
 def merge_dataframe(training_data, demographic_data):
@@ -69,6 +70,8 @@ def merge_dataframe(training_data, demographic_data):
     training_data_merge = training_data.merge(demographic_data, on='subject_id')
     return training_data_merge
 
+
+
 def cleaning_datasets(traning_dataset):
 
     traning_dataset[['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
@@ -77,18 +80,19 @@ def cleaning_datasets(traning_dataset):
     'Support Devices']] = (traning_dataset[['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
     'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
     'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
-    'Support Devices']].fillna(0.0) == 1.0).astype(int) # In The limits of fair medical imaging paper they treat uncertain label as negative and fill NA with 0.
+    'Support Devices']].fillna(0.0) == 1.0).astype(int)  # In The limits of fair medical imaging paper they treat uncertain label as negative and fill NA with 0.
 
-    # Select only Frontal View
+    #Select only Frontal View 
     traning_dataset = traning_dataset[traning_dataset['Frontal/Lateral'] == 'Frontal']
 
     return traning_dataset
 
-def split_and_save_datasets(dataset, train_path='train.csv', val_path='val.csv', val_size=0.1, random_seed=24):
+def split_and_save_datasets(dataset, train_path='train.csv', val_path='val.csv', val_size=0.1, random_seed=42):
 
     train_data, val_data = train_test_split(dataset, test_size=val_size, random_state=random_seed)
     train_data.to_csv(train_path, index=False)
     val_data.to_csv(val_path, index=False)
+
 
 
 def store_diagnostic_images_labels(dataset, path, device):
@@ -116,21 +120,20 @@ def store_diagnostic_images_labels(dataset, path, device):
     else:
         data_images = torch.load(path, map_location=device, weights_only=True)
 
-    data_labels = training_data_merge[['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
+    data_labels = dataset[['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
     'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
     'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture', 'Support Devices']].values
     data_labels = torch.tensor(data_labels, dtype=torch.float32)
     
     return data_images, data_labels
 
+
 def store_race_images_labels(dataset, save_path, device):
     """
     Loads images and processes race labels for multi-class classification.
 
     Args:
-    - dataset (DataFrame): Contains image paths and race labels.
-    - save_path (str): Path to save/load image tensors.
-    - device (torch.device): Device for loading tensors.
+    - training_data_merge (DataFrame): Contains image paths and race labels.
 
     Returns:
     - data_images (List[Tensor]): List of image tensors.
@@ -138,7 +141,7 @@ def store_race_images_labels(dataset, save_path, device):
     """
     label_encoder = LabelEncoder()
 
-    # Keep only top 3 race categories and create a copy
+    # Keep only top 3 race categories
     top_races = dataset['race'].value_counts().index[:3]
     dataset = dataset[dataset['race'].isin(top_races)].copy()
 
@@ -146,22 +149,19 @@ def store_race_images_labels(dataset, save_path, device):
         data_images = []
         paths = tqdm(dataset['Path'], desc="Loading images")
         for path in paths:
-            full_path = os.path.join('/deep_learning/output/Sutariya/chexpert', str(path))
+            full_path = '/deep_learning/output/Sutariya/chexpert' + '/' + str(path)
             img = read_image(full_path)
             data_images.append(img)
             paths.set_postfix({'Loaded': len(data_images)})
         torch.save(data_images, save_path)
+
     else:
         data_images = torch.load(save_path, map_location=device, weights_only=True)
 
-    # ✅ Corrected assignment using .loc[]
-    dataset.loc[:, 'race_encoded'] = label_encoder.fit_transform(dataset['race'])
-
-    # Convert to PyTorch tensor
+    dataset['race_encoded'] = label_encoder.fit_transform(dataset['race'])
     data_labels = torch.tensor(dataset['race_encoded'].values, dtype=torch.long)
     
     return data_images, data_labels
-
 
         
 class MyDataset(Dataset):
@@ -183,21 +183,22 @@ class MyDataset(Dataset):
         return img, label
 
 
-def prepare_dataloaders(data_images, labels, shuffle=False):
+def prepare_dataloaders(data_images, labels, sampler=None, shuffle=False):
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.Lambda(lambda i: i.repeat(3, 1, 1) if i.shape[0] == 1 else i),
-        transforms.RandomResizedCrop((200,200), scale=(0.6, 1.0), ratio=(0.75, 1.33)),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(20),
         transforms.Lambda(lambda i: i/255),
+        transforms.Normalize(mean=[0.5062, 0.5062, 0.5062], std=[0.2873, 0.2873, 0.2873]), # Adapt to own standard deviation and mean to Chexpert
         transforms.Lambda(lambda i: i.to(torch.float32)),
-        transforms.Normalize(mean=[0.5062, 0.5062, 0.5062], std=[0.2873, 0.2873, 0.2873]), # Adapt to own standard diviation and mean to Chexpert
-        transforms.ColorJitter(contrast=(0.7, 1.3)) # Randomly change the brightness, contrast, saturation and hue of an image
+        transforms.RandomResizedCrop((224,224), scale=(0.7, 1.0), ratio=(0.7, 1.33)),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.RandomRotation(10),
+        transforms.ColorJitter(contrast=(0.7, 1.2)) # Randomly change the brightness, contrast, saturation and hue of an image
     ])
 
     dataset = MyDataset(data_images,labels,transform)
-    data_loader = DataLoader(dataset, batch_size=16, shuffle=shuffle)
+    data_loader = DataLoader(dataset, batch_size=16, shuffle=shuffle, sampler=sampler)
 
     return data_loader
 
