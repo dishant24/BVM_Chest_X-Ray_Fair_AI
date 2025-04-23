@@ -27,6 +27,49 @@ def get_group_by_data(data, group_column_name):
         groups_data[name] = group_data
     return groups_data
 
+# Merge the data with demographic data
+def add_demographic_data(training_data, demographic_data):
+     
+     # Load the CSV files
+     df_chexpert = pd.read_csv(training_data, compression='gzip')
+     df_patients = pd.read_csv(demographic_data, compression='gzip')
+
+     # Check for duplicate subject_id in patients dataset
+     df_patients_unique = df_patients[['subject_id', 'race']].drop_duplicates(subset=['subject_id'])
+
+     # Verify uniqueness
+     assert df_patients_unique.duplicated(subset=['subject_id']).sum() == 0, "Duplicate subject_id found in patients dataset"
+
+     # Merge using 'subject_id' 
+     df_merged = df_chexpert.merge(df_patients_unique, on="subject_id", how="left")
+     df_cleaned = df_merged.dropna(subset=['race'])
+
+     return df_cleaned
+
+def merge_file_path(file_path, dataframe):
+     paths = []
+     data = []
+     patient_id, study_id = dataframe['subject_id'], dataframe['study_id']
+     with open(file_path, 'r') as f:
+          paths = f.readlines()
+     for path in paths:
+          path = path[:-1]
+          patient_id = path[11:19]
+          study_id = path[21:29]
+          data.append((patient_id, study_id, path))
+
+     df_paths = pd.DataFrame(data, columns=['subject_id', 'study_id', 'file_path'])
+     df_paths['subject_id'] = df_paths['subject_id'].astype(str)
+     df_paths['study_id'] = df_paths['study_id'].astype(str)
+     dataframe['subject_id'] = dataframe['subject_id'].astype(str)
+     dataframe['study_id'] = dataframe['study_id'].astype(str)
+
+     merge_file_path_dataset = dataframe.merge(df_paths, on=['subject_id', 'study_id'], how='left')
+
+     merge_file_path_dataset.drop_duplicates(subset=['subject_id', 'study_id'], inplace=True)
+
+     return merge_file_path_dataset
+
 # Select the single subject_id per patient which has most positive disease 
 def sampling_datasets(training_dataset):
 

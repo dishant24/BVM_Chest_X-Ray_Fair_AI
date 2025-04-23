@@ -4,7 +4,7 @@ from helper.log import log_roc_auc
 import numpy as np
 import wandb
 
-def model_testing(test_loader, model, device=None, multi_label=True, group_name=None):
+def model_testing(test_loader, model, task,device=None, multi_label=True, group_name=None):
     """
     Evaluates a multi-label classification model on a test dataset.
     
@@ -41,7 +41,7 @@ def model_testing(test_loader, model, device=None, multi_label=True, group_name=
         test_pred_classes = np.argmax(all_test_preds, axis=1)
         test_acc = accuracy_score(all_test_labels, test_pred_classes)
     
-    log_roc_auc(all_test_labels, all_test_preds, log_name=f'Testing ROC-AUC {group_name}', multilabel=multi_label, task_diagnostic=True, group_name=group_name)
+    log_roc_auc(all_test_labels, all_test_preds, task,log_name=f'Testing ROC-AUC for {task} {group_name}', multilabel=multi_label, group_name=group_name)
     wandb.log({"Testing ROC_AUC_Score": auc_roc_test})
     #log_confusion_matrix(all_test_labels, all_test_preds, log_name="Testing Confusion Matrix")
     print(f"Test ROC-AUC Score: {auc_roc_test:.4f}, Testing Accuracy Score: {test_acc:.4f}")

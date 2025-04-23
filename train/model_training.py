@@ -7,7 +7,7 @@ from sklearn.metrics import roc_auc_score, f1_score, accuracy_score
 import wandb
 from helper.log import log_roc_auc
 
-def model_training(model, train_loader, val_loader, loss_function, num_epochs=10, device=None, multi_label=True):
+def model_training(model, train_loader, val_loader, loss_function, tasks, num_epochs: int=10, device=None, multi_label: bool=True, is_swa: bool= True):
     """
     Trains a model for either multi-label or multi-class classification.
 
@@ -24,13 +24,14 @@ def model_training(model, train_loader, val_loader, loss_function, num_epochs=10
     """
     model = model.to(device)
     base_optimizer = torch.optim.AdamW(model.parameters(), lr=0.0001, weight_decay=0.01)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(base_optimizer, mode='min', factor=0.25, patience=5)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(base_optimizer, mode='min', factor=0.20, patience=5)
     early_stopper = EarlyStopper(patience=6)
 
     # SWA will be initialized just before starting SWA training
-    swa_model = None  
-    swa_scheduler = None
-    swa_start_epoch = max(num_epochs - 3, 0)  # SWA starts in last 2 epochs
+    if is_swa:
+        swa_model = None  
+        swa_scheduler = None
+        swa_start_epoch = max(num_epochs - 3, 0)  # SWA starts in last 2 epochs
 
     best_model_weights = copy.deepcopy(model.state_dict())
     best_val_loss = float('inf')
@@ -56,8 +57,7 @@ def model_training(model, train_loader, val_loader, loss_function, num_epochs=10
             all_train_preds.extend(preds)
 
         train_loss /= len(train_loader)
-
-        if epoch == swa_start_epoch:
+        if epoch == swa_start_epoch and is_swa == True:
             print("Initializing SWA Model...")
             swa_model = AveragedModel(model)  # Initialize with latest trained weights
             swa_model = swa_model.to(device)
@@ -95,18 +95,18 @@ def model_training(model, train_loader, val_loader, loss_function, num_epochs=10
             val_acc = f1_score(all_val_labels, val_pred_classes, average='weighted')
 
         wandb.log({"Training AUC": auc_roc_train, "Validation AUC": auc_roc_val})
-        log_roc_auc(all_train_labels, all_train_preds, log_name="Training ROC", multiclass=False, task_diagnostic=False)
-        log_roc_auc(all_val_labels, all_val_preds, log_name="Validation ROC", multiclass=False, task_diagnostic=False)
+        log_roc_auc(all_train_labels, all_train_preds, tasks, log_name=f"{tasks} Training ROC", multilabel=multi_label, group_name=None)
+        log_roc_auc(all_val_labels, all_val_preds, tasks, log_name=f"{tasks} Validation ROC", multilabel=multi_label, group_name=None)
 
         print(f"Epoch [{epoch+1}/{num_epochs}], "
               f"Train AUC: {auc_roc_train:.4f}, Train Acc: {train_acc:.4f}, Train Loss: {train_loss:.4f}, "
               f"Val AUC: {auc_roc_val:.4f}, Val Acc: {val_acc:.4f}, Val Loss: {val_loss:.4f}")
         
         # Apply SWA if within SWA start phase
-        if epoch >= swa_start_epoch:
+        if epoch > swa_start_epoch and is_swa == True:
             swa_model.update_parameters(model)  # Ensure SWA model is actually updated
             swa_scheduler.step()
-        else: 
+        else:    
             scheduler.step(val_loss)
 
         # Save best model weights
@@ -125,7 +125,7 @@ def model_training(model, train_loader, val_loader, loss_function, num_epochs=10
     model.load_state_dict(best_model_weights)
 
     # Apply SWA only if training wasn't early stopped
-    if not early_stopped:
+    if not early_stopped and is_swa == True:
         print("Applying SWA...")
         state_dict = swa_model.state_dict()
         new_state_dict = {k.replace("module.", ""): v for k, v in state_dict.items() if k != "n_averaged"}  # Remove prefix & ignore "n_averaged"

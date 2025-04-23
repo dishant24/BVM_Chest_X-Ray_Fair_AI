@@ -8,7 +8,7 @@ from sklearn.preprocessing import label_binarize
 import seaborn as sns
 
 
-def log_roc_auc(y_true, y_scores, multilabel=True, log_name="roc_auc_curve", task='diagnostic', group_name=None):
+def log_roc_auc(y_true, y_scores, task, multilabel=True, log_name="roc_auc_curve", group_name=None):
      """
     Plots the ROC curve for multi-label or multi-class classification.
 

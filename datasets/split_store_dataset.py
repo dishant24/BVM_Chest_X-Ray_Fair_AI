@@ -13,37 +13,8 @@ def split_and_save_datasets(dataset, train_path='train.csv', val_path='val.csv',
     train_data.to_csv(train_path, index=False)
     val_data.to_csv(val_path, index=False)
 
-def load_and_store_ethnic_images_labels(dataset, path, device):
-    """
-    Loads images and processes ethnic labels.
 
-    Args:
-    - training_data_merge (DataFrame): Contains image paths and diagnostic labels.
-
-    Returns:
-    - data_images (List[Tensor]): List of image tensors.
-    - data_labels (Tensor): Tensor of diagnostic class labels.
-    """
-
-    label_encoder = LabelEncoder()
-    if not os.path.exists(path):
-        data_images = []
-        paths = tqdm(dataset['Path'], desc="Loading images")
-        for p in paths:
-            full_path = '/deep_learning/output/Sutariya/chexpert' + '/' + str(p)
-            img = read_image(full_path)
-            data_images.append(img)
-            paths.set_postfix({'Loaded': len(data_images)})
-        torch.save(data_images, path)
-    else:
-        data_images = torch.load(path, map_location=device, weights_only=True)
-
-    dataset['ethnicity_encoded'] = label_encoder.fit_transform(dataset['ethnicity'])
-    data_labels = torch.tensor(dataset['ethnicity_encoded'].values, dtype=torch.long)
-    
-    return data_images, data_labels
-
-def sample_test(df_group, disease, n_samples=N):
+def sample_test(df_group, disease, n_samples=0):
     positives = df_group[df_group[disease] == 1]
 
     sampled_pos = positives.sample(n=n_samples, random_state=42)
@@ -81,71 +52,3 @@ def split_train_test_data(dataset, N):
     train_df.to_csv('train_dataset.csv', index=False)
 
     print("✅ Done! Test shape:", final_test_df.shape, train_df.shape)
-
-def load_and_store_diagnostic_images_labels(dataset, path, device):
-    """
-    Loads images and processes diagnostic labels.
-
-    Args:
-    - training_data_merge (DataFrame): Contains image paths and diagnostic labels.
-
-    Returns:
-    - data_images (List[Tensor]): List of image tensors.
-    - data_labels (Tensor): Tensor of diagnostic class labels.
-    """
-
-    
-    if not os.path.exists(path):
-        data_images = []
-        paths = tqdm(dataset['Path'], desc="Loading images")
-        for path in paths:
-            full_path = '/deep_learning/output/Sutariya/chexpert' + '/' + str(path)
-            img = read_image(full_path)
-            data_images.append(img)
-            paths.set_postfix({'Loaded': len(data_images)})
-        torch.save(data_images, path)
-    else:
-        data_images = torch.load(path, map_location=device, weights_only=True)
-
-    data_labels = dataset[['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
-    'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
-    'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture', 'Support Devices']].values
-    data_labels = torch.tensor(data_labels, dtype=torch.long)
-    
-    return data_images, data_labels
-
-
-def load_and_store_race_images_labels(dataset, save_path, device):
-    """
-    Loads images and processes race labels for multi-class classification.
-
-    Args:
-    - training_data_merge (DataFrame): Contains image paths and race labels.
-
-    Returns:
-    - data_images (List[Tensor]): List of image tensors.
-    - data_labels (Tensor): Tensor of race class labels.
-    """
-    label_encoder = LabelEncoder()
-
-    # Keep only top 3 race categories
-    top_races = dataset['race'].value_counts().index[:3]
-    dataset = dataset[dataset['race'].isin(top_races)].copy()
-
-    if not os.path.exists(save_path):
-        data_images = []
-        paths = tqdm(dataset['Path'], desc="Loading images")
-        for path in paths:
-            full_path = '/deep_learning/output/Sutariya/chexpert' + '/' + str(path)
-            img = read_image(full_path)
-            data_images.append(img)
-            paths.set_postfix({'Loaded': len(data_images)})
-        torch.save(data_images, save_path)
-
-    else:
-        data_images = torch.load(save_path, map_location=device, weights_only=True)
-
-    dataset['race_encoded'] = label_encoder.fit_transform(dataset['race'])
-    data_labels = torch.tensor(dataset['race_encoded'].values, dtype=torch.long)
-    
-    return data_images, data_labels
