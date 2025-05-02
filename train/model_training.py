@@ -7,7 +7,7 @@ from sklearn.metrics import roc_auc_score, f1_score, accuracy_score
 import wandb
 from helper.log import log_roc_auc
 
-def model_training(model, train_loader, val_loader, loss_function, tasks, num_epochs: int=10, device=None, multi_label: bool=True, is_swa: bool= True):
+def model_training(model, train_loader, val_loader, loss_function, tasks, actual_labels, num_epochs: int=10, device=None, multi_label: bool=True, is_swa: bool= True):
     """
     Trains a model for either multi-label or multi-class classification.
 
@@ -61,7 +61,7 @@ def model_training(model, train_loader, val_loader, loss_function, tasks, num_ep
             print("Initializing SWA Model...")
             swa_model = AveragedModel(model)  # Initialize with latest trained weights
             swa_model = swa_model.to(device)
-            swa_scheduler = SWALR(base_optimizer, anneal_strategy="cos", anneal_epochs=2, swa_lr=0.0001)
+            swa_scheduler = SWALR(base_optimizer, anneal_strategy="cos", anneal_epochs=2, swa_lr=0.001)
 
         ### === Validation Phase === ###
         model.eval()
@@ -95,8 +95,8 @@ def model_training(model, train_loader, val_loader, loss_function, tasks, num_ep
             val_acc = f1_score(all_val_labels, val_pred_classes, average='weighted')
 
         wandb.log({"Training AUC": auc_roc_train, "Validation AUC": auc_roc_val})
-        log_roc_auc(all_train_labels, all_train_preds, tasks, log_name=f"{tasks} Training ROC", multilabel=multi_label, group_name=None)
-        log_roc_auc(all_val_labels, all_val_preds, tasks, log_name=f"{tasks} Validation ROC", multilabel=multi_label, group_name=None)
+        log_roc_auc(all_train_labels, all_train_preds, actual_labels, tasks, log_name=f"{tasks} Training ROC", multilabel=multi_label, group_name=None)
+        log_roc_auc(all_val_labels, all_val_preds, actual_labels, tasks, log_name=f"{tasks} Validation ROC", multilabel=multi_label, group_name=None)
 
         print(f"Epoch [{epoch+1}/{num_epochs}], "
               f"Train AUC: {auc_roc_train:.4f}, Train Acc: {train_acc:.4f}, Train Loss: {train_loss:.4f}, "

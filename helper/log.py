@@ -8,74 +8,53 @@ from sklearn.preprocessing import label_binarize
 import seaborn as sns
 
 
-def log_roc_auc(y_true, y_scores, task, multilabel=True, log_name="roc_auc_curve", group_name=None):
-     """
+def log_roc_auc(y_true, y_scores, labels=None, task=None, multilabel=True, log_name="roc_auc_curve", group_name=None):
+    """
     Plots the ROC curve for multi-label or multi-class classification.
-
+    
     Args:
     - y_true (np.array): True labels.
-        * If multilabel=False: multi-hot encoded (multi-label).
-        * If multilabel=True: single-label integer encoded.
-    - y_scores (np.array): Model's predicted probabilities.
-    - multilabel (bool): Set True for multi-class, False for multi-label.
-    - log_name (str): Name for logging.
-
-    Returns:
-    - None
+    - y_scores (np.array): Predicted probabilities.
+    - labels (list): List of label names (optional if task is provided).
+    - task (str): 'diagnostic', 'race', etc.
+    - multilabel (bool): True if multi-label classification.
+    - log_name (str): Log title.
+    - group_name (str): Optional subgroup label for title.
     """
-    
-     y_true = np.array(y_true)
-     y_scores = np.array(y_scores)
 
-     if task == 'diagnostic':
-        labels = ['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
-     'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
-     'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
-     'Support Devices']
-     elif task == 'race':
-        labels = ['White', 'Other', 'Unknown', 'Asian', 'Black', 'Pacific Islander',
-       'Native American', 'Patient Refused']
-     elif task == 'ethnicity':
-        labels = ['Non-Hispanic/Non-Latino', 'Hispanic/Latino', 'Unknown',
-       'Patient Refused']
-     else:
+    y_true = np.array(y_true)
+    y_scores = np.array(y_scores)
+
+    # Fallback to default labels if none passed
+    if labels is None:
         labels = np.arange(0, y_scores.shape[1])
-     
-     fig, ax = plt.subplots(figsize=(7, 7))
 
-     if not multilabel:
-          # Binarize y_true for one-vs-rest ROC curve
-          num_classes = y_scores.shape[1]
-          y_true_bin = label_binarize(y_true, classes=np.arange(num_classes))
-          
-          for i in range(num_classes):
-               fpr, tpr, _ = roc_curve(y_true_bin[:, i], y_scores[:, i])
-               roc_auc = auc(fpr, tpr)
-               ax.plot(fpr, tpr, lw=2, label=f"{labels[i]} (AUC = {roc_auc:.2f})")
-     
-     else:  # Multi-label case
-          num_classes = y_true.shape[1]
-          for i in range(num_classes):
-               fpr, tpr, _ = roc_curve(y_true[:, i], y_scores[:, i])
-               roc_auc = auc(fpr, tpr)
-               ax.plot(fpr, tpr, lw=2, label=f"{labels[i]} (AUC = {roc_auc:.2f})")
+    fig, ax = plt.subplots(figsize=(7, 7))
 
-     # Add diagonal line
-     ax.plot([0, 1], [0, 1], color="gray", linestyle="--")
-     ax.set_xlim([0.0, 1.0])
-     ax.set_ylim([0.0, 1.05])
-     ax.set_xlabel("False Positive Rate")
-     ax.set_ylabel("True Positive Rate")
-     if group_name is None:
-        ax.set_title(f"ROC Curve {task}")
-     else:
-        ax.set_title(f"ROC Curve {task} of {group_name}")
+    if not multilabel:
+        num_classes = y_scores.shape[1]
+        y_true_bin = label_binarize(y_true, classes=np.arange(num_classes))
+        for i in range(num_classes):
+            fpr, tpr, _ = roc_curve(y_true_bin[:, i], y_scores[:, i])
+            roc_auc = auc(fpr, tpr)
+            ax.plot(fpr, tpr, lw=2, label=f"{labels[i]} (AUC = {roc_auc:.2f})")
+    else:
+        num_classes = y_true.shape[1]
+        for i in range(num_classes):
+            fpr, tpr, _ = roc_curve(y_true[:, i], y_scores[:, i])
+            roc_auc = auc(fpr, tpr)
+            ax.plot(fpr, tpr, lw=2, label=f"{labels[i]} (AUC = {roc_auc:.2f})")
 
-     # Adjust legend size
-     ax.legend(loc="lower right", fontsize=8 if num_classes > 10 else 10)
+    ax.plot([0, 1], [0, 1], color="gray", linestyle="--")
+    ax.set_xlim([0.0, 1.0])
+    ax.set_ylim([0.0, 1.05])
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("True Positive Rate")
+    ax.set_title(f"ROC Curve {task}" if group_name is None else f"ROC Curve {task} of {group_name}")
+    ax.legend(loc="lower right", fontsize=8 if num_classes > 10 else 10)
 
-     wandb.log({log_name: wandb.Image(fig)})
-     plt.close(fig)
+    wandb.log({log_name: wandb.Image(fig)})
+    plt.close(fig)
 
 
 def log_confusion_matrix(y_true, y_pred, multilabel=True, log_name="confusion_matrix"):

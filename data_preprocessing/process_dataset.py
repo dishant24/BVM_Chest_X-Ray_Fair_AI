@@ -46,38 +46,52 @@ def add_demographic_data(training_data, demographic_data):
 
      return df_cleaned
 
-def merge_file_path(file_path, dataframe):
-     paths = []
-     data = []
-     patient_id, study_id = dataframe['subject_id'], dataframe['study_id']
-     with open(file_path, 'r') as f:
-          paths = f.readlines()
-     for path in paths:
-          path = path[:-1]
-          patient_id = path[11:19]
-          study_id = path[21:29]
-          data.append((patient_id, study_id, path))
+def merge_file_path_and_add_dicom_id(file_path, dataframe):
+    paths = []
+    data = []
+    patient_id, study_id = dataframe['subject_id'], dataframe['study_id']
+    with open(file_path, 'r') as f:
+         paths = f.readlines()
+    for path in paths:
+         p = path[:-1]
+         path = p.split('/')
+         patient_id = path[2][1:]
+         study_id = path[3][1:]
+         dicom_id = path[4].rstrip(".jpg")
+         data.append((patient_id, study_id, dicom_id, p))
 
-     df_paths = pd.DataFrame(data, columns=['subject_id', 'study_id', 'file_path'])
-     df_paths['subject_id'] = df_paths['subject_id'].astype(str)
-     df_paths['study_id'] = df_paths['study_id'].astype(str)
-     dataframe['subject_id'] = dataframe['subject_id'].astype(str)
-     dataframe['study_id'] = dataframe['study_id'].astype(str)
-
-     merge_file_path_dataset = dataframe.merge(df_paths, on=['subject_id', 'study_id'], how='left')
-
-     merge_file_path_dataset.drop_duplicates(subset=['subject_id', 'study_id'], inplace=True)
-
-     return merge_file_path_dataset
+    df_paths = pd.DataFrame(data, columns=['subject_id', 'study_id', 'dicom_id', 'file_path'])
+    df_paths['subject_id'] = df_paths['subject_id'].astype('int32')
+    df_paths['study_id'] = df_paths['study_id'].astype('int32')
+    dataframe = dataframe.reset_index(drop=True)
+    print(len(dataframe))
+    dataframe['subject_id'] = dataframe['subject_id'].astype('int32')
+    dataframe['study_id'] = dataframe['study_id'].astype('int32')
+    merge_file_path_dataset = dataframe.merge(df_paths, on=['subject_id','study_id'], how='inner')
+    print(len(merge_file_path_dataset))
+    merge_file_path_dataset.drop_duplicates(subset=['subject_id','study_id'], inplace=True)
+    print(len(merge_file_path_dataset))
+    
+    return merge_file_path_dataset
 
 # Select the single subject_id per patient which has most positive disease 
 def sampling_datasets(training_dataset):
 
     training_dataset = training_dataset.groupby('subject_id', group_keys=False).apply(select_most_positive_sample)
     training_dataset.drop(columns=['positive_count'], inplace=True, errors='ignore')
+    training_dataset.reset_index(drop=True)
     
     return training_dataset
 
+def add_lung_mask_dataset(dataset):
+    file_path = '/deep_learning/output/Sutariya/main/mimic/dataset/MASK-MIMIC-CXR-JPG.csv'
+    mask_df = pd.read_csv(file_path)
+    mask_df = mask_df[['dicom_id', 'Left Lung', 'Right Lung', 'Landmarks']]
+    merge_mask_dataset = pd.merge(dataset, mask_df, how='inner', on='dicom_id')
+    print(len(merge_mask_dataset))
+    merge_mask_dataset.drop_duplicates(subset=['subject_id'], inplace=True)
+
+    return merge_mask_dataset
 
 # Merge the data with demographic data
 def merge_dataframe(training_data, demographic_data):
@@ -95,7 +109,7 @@ def merge_dataframe(training_data, demographic_data):
     return training_data_merge
 
 
-def cleaning_datasets(traning_dataset):
+def cleaning_datasets(traning_dataset, is_chexpert=True):
 
     traning_dataset[['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
     'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
@@ -106,7 +120,8 @@ def cleaning_datasets(traning_dataset):
     'Support Devices']].fillna(0.0) == 1.0).astype(int)  # In The limits of fair medical imaging paper they treat uncertain label as negative and fill NA with 0.
 
     #Select only Frontal View 
-    traning_dataset = traning_dataset[traning_dataset['Frontal/Lateral'] == 'Frontal']
+    if is_chexpert:
+        traning_dataset = traning_dataset[traning_dataset['Frontal/Lateral'] == 'Frontal']
 
     return traning_dataset
 
