@@ -13,9 +13,10 @@ import pandas as pd
 
 
 class ApplyLungMask:
-    def __init__(self, left_rle, right_rle, margin_radius=20, original_shape=(1024, 1024), image_shape=(512, 512)):
+    def __init__(self, left_rle, right_rle, heart_rle, margin_radius=20, original_shape=(1024, 1024), image_shape=(512, 512)):
         self.left_rle = left_rle
         self.right_rle = right_rle
+        self.heart_rle = heart_rle
         self.margin_radius = margin_radius
         self.original_shape = original_shape
         self.image_shape = image_shape
@@ -52,26 +53,31 @@ class ApplyLungMask:
 
         left_mask = self.decode_rle(self.left_rle)
         right_mask = self.decode_rle(self.right_rle)
+        heart_mask = self.decode_rle(self.heart_rle)
+        
 
         left_mask = self.dilate_mask(left_mask)
         right_mask = self.dilate_mask(right_mask)
+        heart_mask = self.dilate_mask(heart_mask)
 
-        combined_mask = np.clip(left_mask + right_mask, 0, 1)
+        combined_mask = left_mask + right_mask + heart_mask
+        combined_mask = np.clip(combined_mask, 0, 1)
+
         combined_mask = self.resize_mask(combined_mask)
-
         masked_image = image_np * combined_mask
 
         return Image.fromarray(masked_image.astype(np.uint8))
 
         
-class MyDataset(Dataset):
-    def __init__(self, image_paths, labels, dataframe,  transform=None, base_dir=None, is_multilabel=True):
+class MyDatase(Dataset):
+    def __init__(self, image_paths, labels, dataframe, masked=False, transform=None, base_dir=None, is_multilabel=True):
         self.image_paths = list(image_paths)
         self.labels = labels
         self.transform = transform
         self.is_multilabel = is_multilabel
         self.base_dir = base_dir
         self.dataframe = dataframe
+        self.masked = masked
 
     def __len__(self):
         return len(self.image_paths)
@@ -80,13 +86,15 @@ class MyDataset(Dataset):
         path = os.path.join(self.base_dir, self.image_paths[idx])
         image = Image.open(path).convert('L')
 
-        # row = self.dataframe.iloc[idx]
-        # left_rle = row['Left Lung']
-        # right_rle = row['Right Lung']
+        if self.masked:
+            row = self.dataframe.iloc[idx]
+            left_rle = row['Left Lung']
+            right_rle = row['Right Lung']
+            heart_rle = row['Heart']
 
-        # # Apply lung mask
-        # masker = ApplyLungMask(left_rle, right_rle)
-        # image = masker(image)
+            # Apply lung mask
+            masker = ApplyLungMask(left_rle, right_rle, heart_rle, margin_radius=60)
+            image = masker(image)
 
         if self.transform:
             image = self.transform(image)

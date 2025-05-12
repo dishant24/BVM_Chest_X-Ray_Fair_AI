@@ -5,7 +5,7 @@ import torch
 
 
 
-def prepare_mimic_dataloaders(images_path, labels, data, base_dir=None, shuffle=False, is_multilabel=True):
+def prepare_mimic_dataloaders(images_path, labels, data, masked, base_dir=None, shuffle=False, is_multilabel=True):
     
     transform = transforms.Compose([
     transforms.Resize((224, 224), interpolation=transforms.InterpolationMode.BICUBIC), 
@@ -23,12 +23,12 @@ def prepare_mimic_dataloaders(images_path, labels, data, base_dir=None, shuffle=
     ])
 
 
-    dataset = MyDataset(images_path, labels, data, transform, base_dir, is_multilabel=is_multilabel)
-    data_loader = DataLoader(dataset, batch_size=16, shuffle=shuffle, num_workers=16)
+    dataset = MyDataset(images_path, labels, data, masked,transform, base_dir, is_multilabel=is_multilabel)
+    data_loader = DataLoader(dataset, batch_size=16, shuffle=shuffle, num_workers=18)
 
     return data_loader
 
-def prepare_chexpert_dataloaders(images_path, labels, dataframe, base_dir=None, shuffle=False, is_multilabel=True):
+def prepare_chexpert_dataloaders(images_path, labels, dataframe, masked, base_dir=None, shuffle=False, is_multilabel=True):
     
     transform = transforms.Compose([
     transforms.Resize((224, 224), interpolation=transforms.InterpolationMode.BICUBIC), 
@@ -46,7 +46,7 @@ def prepare_chexpert_dataloaders(images_path, labels, dataframe, base_dir=None, 
     ])
 
 
-    dataset = MyDataset(images_path, labels, dataframe, transform, base_dir, is_multilabel=is_multilabel)
-    data_loader = DataLoader(dataset, batch_size=16, shuffle=shuffle, num_workers=16)
+    dataset = MyDataset(images_path, labels, dataframe, masked,transform, base_dir, is_multilabel=is_multilabel)
+    data_loader = DataLoader(dataset, batch_size=16, shuffle=shuffle, num_workers=18)
 
     return data_loader

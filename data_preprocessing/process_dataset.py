@@ -5,8 +5,7 @@ def select_most_positive_sample(group):
     disease_columns = [
     'No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
     'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
-    'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture'
-    ]
+    'Pneumothorax', 'Pleural Effusion']
     
     group['positive_count'] = group[disease_columns].sum(axis=1)
     
@@ -86,7 +85,7 @@ def sampling_datasets(training_dataset):
 def add_lung_mask_dataset(dataset):
     file_path = '/deep_learning/output/Sutariya/main/mimic/dataset/MASK-MIMIC-CXR-JPG.csv'
     mask_df = pd.read_csv(file_path)
-    mask_df = mask_df[['dicom_id', 'Left Lung', 'Right Lung', 'Landmarks']]
+    mask_df = mask_df[['dicom_id', 'Left Lung', 'Right Lung', 'Heart']]
     merge_mask_dataset = pd.merge(dataset, mask_df, how='inner', on='dicom_id')
     print(len(merge_mask_dataset))
     merge_mask_dataset.drop_duplicates(subset=['subject_id'], inplace=True)
@@ -108,20 +107,34 @@ def merge_dataframe(training_data, demographic_data):
     training_data_merge = training_data.merge(demographic_data, on='subject_id')
     return training_data_merge
 
+def add_metadata(dataset, metadata_path):
+    meta_data = pd.read_csv(metadata_path)
+    meta_data = meta_data[['subject_id', 'study_id', 'ViewPosition']]
+    meta_data = meta_data.reset_index(drop=True)
+    dataset = dataset.reset_index(drop=True)
+    sampling_total_dataset = pd.merge(dataset, meta_data, how='inner', on=['subject_id', 'study_id'])
+    sampling_total_dataset = sampling_total_dataset.drop_duplicates(['subject_id', 'study_id'])
+
+    return sampling_total_dataset
 
 def cleaning_datasets(traning_dataset, is_chexpert=True):
 
+
+    traning_dataset.drop(['Pleural Other', 'Fracture', 'Support Devices'], axis=1, inplace=True)
     traning_dataset[['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
     'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
-    'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
-    'Support Devices']] = (traning_dataset[['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
+    'Pneumothorax', 'Pleural Effusion']] = (traning_dataset[['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
     'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
-    'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
-    'Support Devices']].fillna(0.0) == 1.0).astype(int)  # In The limits of fair medical imaging paper they treat uncertain label as negative and fill NA with 0.
+    'Pneumothorax', 'Pleural Effusion']].fillna(0.0) == 1.0).astype(int)  # In The limits of fair medical imaging paper they treat uncertain label as negative and fill NA with 0.
 
     #Select only Frontal View 
     if is_chexpert:
         traning_dataset = traning_dataset[traning_dataset['Frontal/Lateral'] == 'Frontal']
+    else:
+        traning_dataset = traning_dataset[traning_dataset.ViewPosition.isin(['AP','PA'])]
+        traning_dataset.loc[traning_dataset['race'].str.startswith('WHITE'), 'race'] = 'WHITE'
+        traning_dataset.loc[traning_dataset['race'].str.startswith('BLACK'), 'race'] = 'BLACK'
+        traning_dataset.loc[traning_dataset['race'].str.startswith('ASIAN'), 'race'] = 'ASIAN'
 
     return traning_dataset
 

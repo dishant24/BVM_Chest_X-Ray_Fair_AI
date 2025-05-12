@@ -2,6 +2,7 @@ import torchvision
 import torch.nn as nn
 import torch
 
+
 class DenseNet_Model(nn.Module):
      def __init__(self, weights, out_feature):
           super().__init__()
