@@ -11,9 +11,8 @@ from scipy.ndimage import binary_dilation
 from skimage.morphology import disk
 import pandas as pd
 
-
 class ApplyLungMask:
-    def __init__(self, left_rle, right_rle, heart_rle, margin_radius=20, original_shape=(1024, 1024), image_shape=(512, 512)):
+    def __init__(self, left_rle, right_rle, heart_rle, margin_radius=20, original_shape=(1024, 1024), image_shape=(224, 224)):
         self.left_rle = left_rle
         self.right_rle = right_rle
         self.heart_rle = heart_rle
@@ -41,7 +40,7 @@ class ApplyLungMask:
 
     def resize_mask(self, mask):
         mask_img = Image.fromarray(mask.astype(np.uint8) * 255)
-        mask_resized = mask_img.resize((self.image_shape[1], self.image_shape[0]), resample=Image.NEAREST)
+        mask_resized = mask_img.resize((self.image_shape[1], self.image_shape[0]), resample=Image.BICUBIC)
         return np.array(mask_resized) // 255
 
     def __call__(self, image):
@@ -54,7 +53,6 @@ class ApplyLungMask:
         left_mask = self.decode_rle(self.left_rle)
         right_mask = self.decode_rle(self.right_rle)
         heart_mask = self.decode_rle(self.heart_rle)
-        
 
         left_mask = self.dilate_mask(left_mask)
         right_mask = self.dilate_mask(right_mask)
@@ -62,14 +60,13 @@ class ApplyLungMask:
 
         combined_mask = left_mask + right_mask + heart_mask
         combined_mask = np.clip(combined_mask, 0, 1)
-
         combined_mask = self.resize_mask(combined_mask)
         masked_image = image_np * combined_mask
 
         return Image.fromarray(masked_image.astype(np.uint8))
 
         
-class MyDatase(Dataset):
+class MyDataset(Dataset):
     def __init__(self, image_paths, labels, dataframe, masked=False, transform=None, base_dir=None, is_multilabel=True):
         self.image_paths = list(image_paths)
         self.labels = labels
@@ -102,5 +99,5 @@ class MyDatase(Dataset):
         if self.is_multilabel:
             label = torch.tensor(self.labels[idx], dtype=torch.float32)
         else:
-            label = torch.tensor(self.labels[idx], dtype=torch.int32)
+            label = torch.tensor(self.labels[idx], dtype=torch.long)
         return image, label

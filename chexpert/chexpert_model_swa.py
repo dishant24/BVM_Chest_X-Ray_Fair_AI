@@ -24,15 +24,16 @@ if __name__ == '__main__':
     
     torch.cuda.empty_cache()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    random_state = 10
+    random_state = 101
     epoch = 20
-    training = True
-    task = 'diagnostic'
+    training = False
+    task = 'race'
     dataset = 'chexpert'
     is_groupby = False
-    multi_label = True
+    multi_label = False
     masked = False
-
+    name = f"{task}_model_training_{random_state}" if training else f"{task}_model_testing_{random_state}"
+    label_encoder = LabelEncoder()
 
     if not os.path.exists("/deep_learning/output/Sutariya/main/chexpert/wandb"):
         os.mkdir("/deep_learning/output/Sutariya/main/chexpert/wandb")
@@ -41,7 +42,7 @@ if __name__ == '__main__':
     wandb.init(
     project=f"cxr_preprocessing_{task}" if not is_groupby else f"cxr_preprocessing_groupby_{task}",
     dir="/deep_learning/output/Sutariya/main/chexpert/wandb",
-    name = f"Pneumonia_model_training_{random_state}",
+    name = name, 
     config={
     "learning_rate": 0.0001,
     "Task": task,
@@ -63,6 +64,11 @@ if __name__ == '__main__':
     val_output_path = '/deep_learning/output/Sutariya/main/chexpert/dataset/validation_clean_dataset.csv'
     all_dataset_path = '/deep_learning/output/Sutariya/main/chexpert/dataset/train.csv'
 
+
+    labels = ['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
+     'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
+     'Pneumothorax', 'Pleural Effusion']
+
     if not (os.path.exists(train_output_path) and os.path.exists(val_output_path)):
             all_data = pd.read_csv(all_dataset_path)
             demographic_data = pd.read_csv(demographic_data_path)
@@ -83,103 +89,90 @@ if __name__ == '__main__':
         training_dataset = pd.read_csv(train_output_path)
         validation_dataset = pd.read_csv(val_output_path)
 
-        label_encoder = LabelEncoder()
         if task == 'diagnostic':
-            labels = ['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
-     'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
-     'Pneumothorax', 'Pleural Effusion']
             # if you want to train single diagnostic label uncomment below  2 line and comment above 4 line
             # labels = ['Pneumonia']
             criterion = nn.BCEWithLogitsLoss()
             train_loader = prepare_chexpert_dataloaders(training_dataset['Path'], training_dataset[labels].values, training_dataset, masked, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset',shuffle=True, is_multilabel=multi_label)
-            val_loader = prepare_chexpert_dataloaders(validation_dataset['Path'], validation_dataset[labels].values, training_dataset, masked, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset', shuffle=True, is_multilabel=multi_label)  
-            
+            val_loader = prepare_chexpert_dataloaders(validation_dataset['Path'], validation_dataset[labels].values, validation_dataset, masked, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset', shuffle=True, is_multilabel=multi_label)  
             model = DenseNet_Model(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1, out_feature=11)
         elif task == 'race':
             top_races = training_dataset['race'].value_counts().index[:5]
+            labels = top_races.values
             training_dataset = training_dataset[training_dataset['race'].isin(top_races)].copy()
             validation_dataset = validation_dataset[validation_dataset['race'].isin(top_races)].copy()
             training_dataset['race_encoded'] = label_encoder.fit_transform(training_dataset['race'])
             validation_dataset['race_encoded'] = label_encoder.transform(validation_dataset['race'])
             train_loader = prepare_chexpert_dataloaders(training_dataset['Path'], training_dataset['race_encoded'].values, training_dataset, masked, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset', shuffle=True, is_multilabel=multi_label)
-            val_loader = prepare_chexpert_dataloaders(validation_dataset['Path'], validation_dataset['race_encoded'].values, training_dataset, masked, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset', shuffle=True, is_multilabel=multi_label)
+            val_loader = prepare_chexpert_dataloaders(validation_dataset['Path'], validation_dataset['race_encoded'].values, validation_dataset, masked, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset', shuffle=True, is_multilabel=multi_label)
             criterion = nn.CrossEntropyLoss()
-            model = DenseNet_Model(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1, out_feature=5)
+            # model = DenseNet_Model(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1, out_feature=5)
             # Comment below if you want to train race model
-            # base_model = DenseNet_Model(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1, out_feature=3)
-            # model = model_transfer_learning('/deep_learning/output/Sutariya/main/chexpert/checkpoint/diagnostic/model_swa_10.pth', base_model, device)
+            base_model = DenseNet_Model(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1, out_feature=5)
+            model = model_transfer_learning('/deep_learning/output/Sutariya/main/chexpert/checkpoint/diagnostic/diagnostic_model_training_101.pth', base_model, device)
         elif task == 'ethnicity':
             training_dataset['ethnicity_encoded'] = label_encoder.fit_transform(training_dataset['ethnicity'])
             validation_dataset['ethnicity_encoded'] = label_encoder.transform(validation_dataset['ethnicity'])
             train_loader = prepare_chexpert_dataloaders(training_dataset['Path'], training_dataset['ethnicity_encoded'].values, training_dataset, masked, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset', shuffle=True, is_multilabel=multi_label)
-            val_loader = prepare_chexpert_dataloaders(validation_dataset['Path'], validation_dataset['ethnicity_encoded'].values, training_dataset, masked, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset',  shuffle=True, is_multilabel=multi_label)
+            val_loader = prepare_chexpert_dataloaders(validation_dataset['Path'], validation_dataset['ethnicity_encoded'].values, validation_dataset, masked, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset',  shuffle=True, is_multilabel=multi_label)
             criterion = nn.CrossEntropyLoss()
             base_model = DenseNet_Model(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1, out_feature=4)
             model = model_transfer_learning('/deep_learning/output/Sutariya/main/chexpert/checkpoint/diagnostic/model_swa_10.pth', base_model, device)   
         else:
-            print("Task value should be in diagnostic or race or ethnicity...")
+            print("Task value should be diagnostic or race or ethnicity...")
 
         model_training(model, train_loader, val_loader, criterion, task, labels, epoch, device=device, multi_label=multi_label, is_swa=True)
         
-        torch.save(model.state_dict(), f'/deep_learning/output/Sutariya/main/chexpert/checkpoint/{task}/Pneumonia_swa_{random_state}.pth')
+        torch.save(model.state_dict(), f'/deep_learning/output/Sutariya/main/chexpert/checkpoint/{task}/{name}.pth')
     
     else:
         if is_groupby:
-            training_data = pd.read_csv('/deep_learning/output/Sutariya/main/chexpert/dataset/train.csv')
+            training_data = pd.read_csv(all_dataset_path)
             demographic_data = pd.read_csv(demographic_data_path)
             all_dataset = merge_dataframe(training_data, demographic_data)
-            test_dataset = pd.read_csv("/deep_learning/output/Sutariya/main/chexpert/dataset/test_dataset.csv")
-            ethnic_groupby_dataset = get_group_by_data(test_dataset, 'ethnicity')
-            labels = ['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
-     'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
-     'Pneumothorax', 'Pleural Effusion']
+            test_dataset = pd.read_csv(test_file_path)
+            race_groupby_dataset = get_group_by_data(test_dataset, 'race')
 
-            subject_to_ethnicity = dict(zip(all_dataset['subject_id'], all_dataset['ethnicity']))
+            subject_to_race = dict(zip(all_dataset['subject_id'], all_dataset['race']))
 
             assert not test_dataset.duplicated('subject_id').any(), "Duplicate subject_ids found in test_dataset"
             assert not test_dataset.duplicated('Path').any(), "Duplicate image paths found in test_dataset"
 
             for idx, row in test_dataset.iterrows():
                 sid = row['subject_id']
-                test_ethnicity = row['ethnicity']
+                test_race = row['race']
                 
-                assert sid in subject_to_ethnicity, f"subject_id {sid} not found in all_dataset"
-                assert subject_to_ethnicity[sid] == test_ethnicity, \
-                    f"Ethnicity mismatch for subject_id {sid}: test_dataset has '{test_ethnicity}', all_dataset has '{subject_to_ethnicity[sid]}'"
+                assert sid in subject_to_race, f"subject_id {sid} not found in all_dataset"
+                assert subject_to_race[sid] == test_race, \
+                    f"Race mismatch for subject_id {sid}: test_dataset has '{test_race}', all_dataset has '{subject_to_race[sid]}'"
 
-            for group in ethnic_groupby_dataset.keys():
-                assert not ethnic_groupby_dataset[group].duplicated('subject_id').any(), f"Duplicate subject_ids in group {group}"
-                assert not ethnic_groupby_dataset[group].duplicated('Path').any(), f"Duplicate image paths in group {group}"
-                test_loader = prepare_chexpert_dataloaders(ethnic_groupby_dataset[group]['Path'], ethnic_groupby_dataset[group][labels].values, None, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset', shuffle=True, is_multilabel=multi_label)
-                weights = torch.load('/deep_learning/output/Sutariya/main/chexpert/checkpoint/diagnostic/model_swa_10.pth', map_location=device, weights_only=True)
-                test_model = DenseNet_Model(weights=None, out_feature=14)
+            for group in race_groupby_dataset.keys():
+                assert not race_groupby_dataset[group].duplicated('subject_id').any(), f"Duplicate subject_ids in group {group}"
+                assert not race_groupby_dataset[group].duplicated('Path').any(), f"Duplicate image paths in group {group}"
+                test_loader = prepare_chexpert_dataloaders(race_groupby_dataset[group]['Path'], race_groupby_dataset[group][labels].values, race_groupby_dataset[group], masked, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset', shuffle=False, is_multilabel=multi_label)
+                weights = torch.load('/deep_learning/output/Sutariya/main/chexpert/checkpoint/diagnostic/model_swa_20.pth', map_location=device, weights_only=True)
+                test_model = DenseNet_Model(weights=None, out_feature=11)
                 test_model.load_state_dict(weights)
                 model_testing(test_loader, test_model, labels, task, device, multi_label=multi_label, group_name=group)
         else:
             
-            demographic_data_path = '/deep_learning/output/Sutariya/main/chexpert/dataset/demographics_CXP.csv'
-            testing_data = pd.read_csv(test_file_path)
-            demographic_data = pd.read_csv(demographic_data_path)
-
-            testing_dataset = merge_dataframe(testing_data, demographic_data)
-            testing_dataset = cleaning_datasets(testing_dataset)
+            testing_dataset = pd.read_csv("/deep_learning/output/Sutariya/main/chexpert/dataset/test_dataset.csv")
             if task == 'diagnostic':
-                labels = ['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
-     'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
-     'Pneumothorax', 'Pleural Effusion']
-                test_loader = prepare_chexpert_dataloaders(testing_dataset['Path'], testing_dataset[labels].values, None, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset', shuffle=False, is_multilabel=multi_label)
-                weights = torch.load('daignostic_model_swa_1.pth', map_location=device, weights_only=True)
+                
+                test_loader = prepare_chexpert_dataloaders(testing_dataset['Path'], testing_dataset[labels].values, testing_dataset, masked, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset', shuffle=False, is_multilabel=multi_label)
+                weights = torch.load('/deep_learning/output/Sutariya/main/chexpert/checkpoint/diagnostic/diagnostic_model_training_101.pth', map_location=device, weights_only=True)
                 test_model = DenseNet_Model(weights=None, out_feature=11)
             elif task == 'race':
                 top_races = testing_dataset['race'].value_counts().index[:5]
                 testing_dataset = testing_dataset[testing_dataset['race'].isin(top_races)].copy()
+                labels = top_races.values
                 testing_dataset['race_encoded'] = label_encoder.fit_transform(testing_dataset['race'])
-                test_loader = prepare_chexpert_dataloaders(testing_dataset['Path'], testing_dataset['race_encoded'].values, None, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset', shuffle=False, is_multilabel=multi_label)
-                weights = torch.load('race_model_swa_1.pth', map_location=device, weights_only=True)
+                test_loader = prepare_chexpert_dataloaders(testing_dataset['Path'], testing_dataset['race_encoded'].values, testing_dataset, masked, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset', shuffle=False, is_multilabel=multi_label)
+                weights = torch.load('/deep_learning/output/Sutariya/main/chexpert/checkpoint/race/race_model_training_101.pth', map_location=device, weights_only=True)
                 test_model = DenseNet_Model(weights=None, out_feature=5)
             elif task == 'ethnicity':
                 testing_dataset['ethnicity_encoded'] = label_encoder.fit_transform(testing_dataset['ethnicity'])
-                test_loader = prepare_chexpert_dataloaders(testing_dataset['Path'], testing_dataset['ethnicity_encoded'].values, None, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset', shuffle=False,is_multilabel=multi_label)
+                test_loader = prepare_chexpert_dataloaders(testing_dataset['Path'], testing_dataset['ethnicity_encoded'].values, testing_dataset, masked, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset', shuffle=False,is_multilabel=multi_label)
                 weights = torch.load('race_model_swa_1.pth', map_location=device, weights_only=True)
                 test_model = DenseNet_Model(weights=None, out_feature=4)
             else:

@@ -24,8 +24,8 @@ def model_training(model, train_loader, val_loader, loss_function, tasks, actual
     """
     model = model.to(device)
     base_optimizer = torch.optim.AdamW(model.parameters(), lr=0.0001, weight_decay=0.01)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(base_optimizer, mode='min', factor=0.20, patience=5)
-    early_stopper = EarlyStopper(patience=6)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(base_optimizer, mode='min', factor=0.20, patience=3)
+    early_stopper = EarlyStopper(patience=3)
 
     # SWA will be initialized just before starting SWA training
     if is_swa:
@@ -61,7 +61,7 @@ def model_training(model, train_loader, val_loader, loss_function, tasks, actual
             print("Initializing SWA Model...")
             swa_model = AveragedModel(model)  # Initialize with latest trained weights
             swa_model = swa_model.to(device)
-            swa_scheduler = SWALR(base_optimizer, anneal_strategy="cos", anneal_epochs=2, swa_lr=0.001)
+            swa_scheduler = SWALR(base_optimizer, anneal_strategy="cos", anneal_epochs=3, swa_lr=0.0001)
 
         ### === Validation Phase === ###
         model.eval()
