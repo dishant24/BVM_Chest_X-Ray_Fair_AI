@@ -20,6 +20,7 @@ Build processing method for an AI model that is:
 git clone git@gitlab.fme.lan:sutariya/cxr_preprocessing.git
 cd cxr_preprocessing
 pip install -r requirements.txt
+```
 
 ## ⚙️ Methods and Approach
 
