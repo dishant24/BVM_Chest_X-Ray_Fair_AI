@@ -1,17 +1,24 @@
-import wandb
-from sklearn.metrics import confusion_matrix
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import roc_curve, auc, roc_auc_score, f1_score, accuracy_score
-import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import label_binarize
+import numpy as np
 import seaborn as sns
+import wandb
+from sklearn.metrics import auc, confusion_matrix, roc_curve
+from sklearn.preprocessing import label_binarize
 
+from typing import List
 
-def log_roc_auc(y_true, y_scores, labels=None, task=None, multilabel=True, log_name="roc_auc_curve", group_name=None):
+def log_roc_auc(
+    y_true : List[int, float, str],
+    y_scores: List[int, float, str],
+    labels : List[str]=None,
+    task: str =None,
+    multilabel: bool =True,
+    log_name: str ="roc_auc_curve",
+    group_name: str =None,
+)-> None:
     """
     Plots the ROC curve for multi-label or multi-class classification.
-    
+
     Args:
     - y_true (np.array): True labels.
     - y_scores (np.array): Predicted probabilities.
@@ -50,14 +57,18 @@ def log_roc_auc(y_true, y_scores, labels=None, task=None, multilabel=True, log_n
     ax.set_ylim([0.0, 1.05])
     ax.set_xlabel("False Positive Rate")
     ax.set_ylabel("True Positive Rate")
-    ax.set_title(f"ROC Curve {task}" if group_name is None else f"ROC Curve {task} of {group_name}")
+    ax.set_title(
+        f"ROC Curve {task}"
+        if group_name is None
+        else f"ROC Curve {task} of {group_name}"
+    )
     ax.legend(loc="lower right", fontsize=8 if num_classes > 10 else 10)
 
     wandb.log({log_name: wandb.Image(fig)})
     plt.close(fig)
 
 
-def log_confusion_matrix(y_true, y_pred, multilabel=True, log_name="confusion_matrix"):
+def log_confusion_matrix(y_true: List[int, str, float], y_pred: List[int, str, float], multilabel: bool =True, log_name: str ="confusion_matrix"):
     """
     Plots the confusion matrix for multi-label or multi-class classification.
 
@@ -74,26 +85,26 @@ def log_confusion_matrix(y_true, y_pred, multilabel=True, log_name="confusion_ma
     """
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
-    
+
     if not multilabel:
         # Multi-class confusion matrix
         y_pred = np.argmax(y_pred, axis=1)
         cm = confusion_matrix(y_true, y_pred)
-        fig, ax = plt.subplots(figsize=(6,6))
+        fig, ax = plt.subplots(figsize=(6, 6))
         sns.heatmap(cm, annot=True, cmap="coolwarm", ax=ax)
         ax.set_title("Confusion Matrix (Multi-Class)")
         ax.set_xlabel("Predicted")
         ax.set_ylabel("Actual")
-    
+
     else:
         # Multi-label confusion matrix (per-class)
         num_classes = y_true.shape[1]
         fig, axes = plt.subplots(1, num_classes, figsize=(20, 12))
-        
+
         for i in range(num_classes):
             cm = confusion_matrix(y_true[:, i], y_pred[:, i])
             sns.heatmap(cm, annot=True, fmt="d", cmap="coolwarm", ax=axes[i])
-            axes[i].set_title(f'Class {i}')
+            axes[i].set_title(f"Class {i}")
             axes[i].set_xlabel("Predicted")
             axes[i].set_ylabel("Actual")
 
