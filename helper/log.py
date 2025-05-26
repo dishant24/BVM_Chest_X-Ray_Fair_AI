@@ -5,11 +5,11 @@ import wandb
 from sklearn.metrics import auc, confusion_matrix, roc_curve
 from sklearn.preprocessing import label_binarize
 
-from typing import List
+from typing import List, Union
 
 def log_roc_auc(
-    y_true : List[int, float, str],
-    y_scores: List[int, float, str],
+    y_true : List[Union[int, float]],
+    y_scores: List[Union[int, float]],
     labels : List[str]=None,
     task: str =None,
     multilabel: bool =True,
@@ -68,7 +68,7 @@ def log_roc_auc(
     plt.close(fig)
 
 
-def log_confusion_matrix(y_true: List[int, str, float], y_pred: List[int, str, float], multilabel: bool =True, log_name: str ="confusion_matrix"):
+def log_confusion_matrix(y_true: List[Union[int, float]], y_pred: List[Union[int, float]], multilabel: bool =True, log_name: str ="confusion_matrix"):
     """
     Plots the confusion matrix for multi-label or multi-class classification.
 

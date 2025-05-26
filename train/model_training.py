@@ -8,6 +8,7 @@ from torch.optim.swa_utils import SWALR, AveragedModel
 
 from helper.log import log_roc_auc
 from typing import Callable, List, Optional
+from helper.early_stop import EarlyStopperByAUC, EarlyStopperByLoss
 
 
 def model_training(
@@ -40,10 +41,9 @@ def model_training(
     base_optimizer = torch.optim.AdamW(
         model.parameters(), lr=0.0001, weight_decay=0.001
     )
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        base_optimizer, T_0=10, T_mult=1, eta_min=1e-6
-    )
-    # early_stopper = EarlyStopper(patience=3)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        base_optimizer,T_max=num_epochs, eta_min=10e-6)
+    # early_stopper = EarlyStopperByLoss(patience=5)
 
     # SWA will be initialized just before starting SWA training
     if is_swa:
@@ -51,6 +51,7 @@ def model_training(
         swa_scheduler = None
         swa_start_epoch = max(num_epochs - 5, 0)
 
+    best_val_auc = float('inf')
     best_model_weights = copy.deepcopy(model.state_dict())
     early_stopped = False
 
@@ -166,9 +167,13 @@ def model_training(
         else:
             scheduler.step()
 
+        if auc_roc_val > best_val_auc:
+            best_val_auc = auc_roc_val
+            best_model_weights = copy.deepcopy(model.state_dict())
+
         best_model_weights = copy.deepcopy(model.state_dict())
 
-        # if early_stopper.early_stop(val_loss):
+        # if early_stopper.early_stop(auc_roc_val):
         #     print("Early stopping triggered.")
         #     best_model_weights = copy.deepcopy(model.state_dict())
         #     early_stopped = True
