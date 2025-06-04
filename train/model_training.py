@@ -43,7 +43,7 @@ def model_training(
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         base_optimizer,T_max=num_epochs, eta_min=10e-6)
-    # early_stopper = EarlyStopperByLoss(patience=5)
+    early_stopper = EarlyStopperByAUC(patience=5)
 
     # SWA will be initialized just before starting SWA training
     if is_swa:
@@ -51,7 +51,7 @@ def model_training(
         swa_scheduler = None
         swa_start_epoch = max(num_epochs - 5, 0)
 
-    best_val_auc = float('inf')
+    best_val_auc = 0
     best_model_weights = copy.deepcopy(model.state_dict())
     early_stopped = False
 
@@ -171,13 +171,11 @@ def model_training(
             best_val_auc = auc_roc_val
             best_model_weights = copy.deepcopy(model.state_dict())
 
-        best_model_weights = copy.deepcopy(model.state_dict())
-
-        # if early_stopper.early_stop(auc_roc_val):
-        #     print("Early stopping triggered.")
-        #     best_model_weights = copy.deepcopy(model.state_dict())
-        #     early_stopped = True
-        #     break
+        if early_stopper.early_stop(auc_roc_val):
+            print("Early stopping triggered.")
+            best_model_weights = copy.deepcopy(model.state_dict())
+            early_stopped = True
+            break
 
     # Restore best model weights if early stopped
     model.load_state_dict(best_model_weights)

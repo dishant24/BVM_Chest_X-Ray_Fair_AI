@@ -44,7 +44,7 @@ def prepare_mimic_dataloaders(
         is_multilabel=is_multilabel,
     )
     data_loader = DataLoader(
-        dataset, batch_size=4, shuffle=shuffle, num_workers=12, pin_memory=True
+        dataset, batch_size=4, shuffle=shuffle, num_workers=8, pin_memory=True
     )
 
     return data_loader
@@ -89,7 +89,7 @@ def prepare_chexpert_dataloaders(
         is_multilabel=is_multilabel,
     )
     data_loader = DataLoader(
-        dataset, batch_size=4, shuffle=shuffle, num_workers=12, pin_memory=True
+        dataset, batch_size=4, shuffle=shuffle, num_workers=8, pin_memory=True
     )
 
     return data_loader
