@@ -21,7 +21,8 @@ from data_preprocessing.process_dataset import (
 )
 from datasets.dataloader import prepare_mimic_dataloaders, prepare_chexpert_dataloaders
 from datasets.split_store_dataset import split_and_save_datasets, split_train_test_data
-from evaluation.model_testing import model_testing
+from evaluation.model_testing import model_testing, model_testing_metrics_eval
+from evaluation.groupby_eval import groupby_testing
 from models.build_model import DenseNet_Model, model_transfer_learning, Resnet_Model, Efficientnet_Model, ConvNeXt_Model
 from train.model_training import model_training
 from helper.losses import LabelSmoothingLoss
@@ -32,25 +33,28 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 if __name__ == "__main__":
     torch.cuda.empty_cache()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    random_state = 101
+    random_state = 102
     epoch = 30
     training = False
     task = "diagnostic"
-    is_groupby = True
-    dataset = "chexpert"
+    is_groupby = False
+    dataset = "mimic"
     masked = False
     multi_label = True
-    external_ood_test = True
+    external_ood_test = False
+    normal_testing = True
 
     base_dir = "MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/"
     name = (
-        f"traininig_earlystop_valauc_and_cosine_lr_mimic_diagnostic_101 labelsmoothing_{dataset}_{task}_{random_state}"
+        f"traininig_cosine_warmrestart_label_smoothing_{dataset}_{task}_{random_state}"
         if training
         else f"testing_earlystop_valauc_and_cosine_lr_{dataset}_{task}_{random_state}"
     )
     label_encoder = LabelEncoder()
 
-    external_data_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/validation_clean_dataset.csv"
+    external_val_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/validation_clean_dataset.csv"
+    external_train_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/train_clean_dataset.csv"
+    
     train_output_path = (
         "/deep_learning/output/Sutariya/main/mimic/dataset/train_mask_clean_dataset.csv"
         if masked
@@ -93,111 +97,33 @@ if __name__ == "__main__":
         "Pleural Effusion",
     ]
 
-    if not os.path.exists("/deep_learning/output/Sutariya/main/mimic/wandb"):
-        os.mkdir("/deep_learning/output/Sutariya/main/mimic/wandb")
-    os.environ["WANDB_DIR"] = os.path.abspath(
-        "/deep_learning/output/Sutariya/main/mimic/wandb"
-    )
+    # if not os.path.exists("/deep_learning/output/Sutariya/main/mimic/wandb"):
+    #     os.mkdir("/deep_learning/output/Sutariya/main/mimic/wandb")
+    # os.environ["WANDB_DIR"] = os.path.abspath(
+    #     "/deep_learning/output/Sutariya/main/mimic/wandb"
+    # )
 
-    wandb.init(
-        project=f"mimic_preprocessing_groupby_{task}"
-        if is_groupby
-        else f"mimic_preprocessing_{task}",
-        name=f"{name}",
-        dir="/deep_learning/output/Sutariya/main/mimic/wandb",
-        config={
-            "learning_rate": 0.0001,
-            "Task": task,
-            "save_model_file_name": name,
-            "Uncertain Labels": "-1 = 0, NAN = 0",
-            "epochs": epoch,
-            "Augmentation": "Yes",
-            "optimiser": "AdamW",
-            "architecture": "DenseNet121",
-            "dataset": dataset,
-            "Standardization": "Yes",
-        },
-    )
+    # wandb.init(
+    #     project=f"mimic_preprocessing_groupby_{task}"
+    #     if is_groupby
+    #     else f"mimic_preprocessing_{task}",
+    #     name=f"{name}",
+    #     dir="/deep_learning/output/Sutariya/main/mimic/wandb",
+    #     config={
+    #         "learning_rate": 0.0001,
+    #         "Task": task,
+    #         "save_model_file_name": name,
+    #         "Uncertain Labels": "-1 = 0, NAN = 0",
+    #         "epochs": epoch,
+    #         "Augmentation": "Yes",
+    #         "optimiser": "AdamW",
+    #         "architecture": "DenseNet121",
+    #         "dataset": dataset,
+    #         "Standardization": "Yes",
+    #     },
+    # )
 
-    def groupby_testing(all_dataset_path: str, demographic_data_path: str, test_file_path: str, model_path: str,validate_data: bool= True, base_dir=None):
 
-        test_dataset = pd.read_csv(test_file_path)
-        top_races = test_dataset["race"].value_counts().index[:5]
-        test_dataset = test_dataset[test_dataset["race"].isin(top_races)].copy()
-        race_groupby_dataset = get_group_by_data(test_dataset, "race")
-
-        if validate_data:
-            all_dataset = add_demographic_data(all_dataset_path, demographic_data_path)
-            subject_to_race = dict(zip(all_dataset["subject_id"], all_dataset["race"]))
-            all_dataset.loc[all_dataset["race"].str.startswith("WHITE"), "race"] = (
-                "WHITE"
-            )
-            all_dataset.loc[all_dataset["race"].str.startswith("BLACK"), "race"] = (
-                "BLACK"
-            )
-            all_dataset.loc[all_dataset["race"].str.startswith("ASIAN"), "race"] = (
-                "ASIAN"
-            )
-        
-            assert not test_dataset.duplicated("subject_id").any(), (
-                "Duplicate subject_ids found in test_dataset"
-            )
-            assert not test_dataset.duplicated("Path").any(), (
-                "Duplicate image paths found in test_dataset"
-            )
-            for idx, row in test_dataset.iterrows():
-                sid = row["subject_id"]
-                test_race = row["race"]
-
-                assert sid in subject_to_race, (
-                    f"subject_id {sid} not found in all_dataset"
-                )
-                assert subject_to_race[sid] == test_race, (
-                    f"Race mismatch for subject_id {sid}: test_dataset has '{test_race}', all_dataset has '{subject_to_race[sid]}'"
-                )
-        
-
-        for group in race_groupby_dataset.keys():
-            assert not race_groupby_dataset[group].duplicated("subject_id").any(), (
-                f"Duplicate subject_ids in group {group}"
-            )
-            assert not race_groupby_dataset[group].duplicated("Path").any(), (
-                f"Duplicate image paths in group {group}"
-            )
-            test_loader = prepare_mimic_dataloaders(
-                race_groupby_dataset[group]["Path"],
-                race_groupby_dataset[group][labels].values,
-                race_groupby_dataset[group],
-                masked,
-                base_dir = base_dir,
-                shuffle=False,
-                is_multilabel=multi_label
-            ) if base_dir == "MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/" else prepare_chexpert_dataloaders(
-                        race_groupby_dataset[group]["Path"],
-                        race_groupby_dataset[group][labels].values,
-                        race_groupby_dataset[group],
-                        masked,
-                        base_dir = base_dir,
-                        shuffle=False,
-                        is_multilabel=multi_label
-                    )
-            weights = torch.load(
-                model_path,
-                map_location=device,
-                weights_only=True,
-            )
-            test_model = DenseNet_Model(weights=None, out_feature=11)
-            test_model.load_state_dict(weights)
-            model_testing(
-                test_loader,
-                test_model,
-                labels,
-                task,
-                name,
-                device,
-                multi_label=multi_label,
-                group_name=group,
-            )
 
 
     if not (os.path.exists(train_output_path) and os.path.exists(valid_output_path)):
@@ -269,8 +195,8 @@ if __name__ == "__main__":
             )
             criterion = LabelSmoothingLoss(smoothing=0.1, mode='multilabel')
             # criterion = nn.BCEWithLogitsLoss()
-            model = Efficientnet_Model(
-                weights=torchvision.models.EfficientNet_V2_S_Weights.IMAGENET1K_V1,
+            model = DenseNet_Model(
+                weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1,
                 out_feature=11
             )
         elif task == "race":
@@ -369,116 +295,157 @@ if __name__ == "__main__":
 
     else:
         if external_ood_test:
-            testing_data = pd.read_csv(external_data_path)
+            testing_data = pd.read_csv(external_val_path)
+            # external_train_data = pd.read_csv(external_train_path)
+            # testing_data = pd.concat([external_val_data, external_train_data])
             if is_groupby:
-                groupby_testing(all_dataset_path, demographic_data_path, external_data_path, model_path= "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_earlystop_valauc_and_cosine_lr_mimic_diagnostic_101.pth", validate_data= False, base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset')
-            else:
-                if task == "diagnostic":
-                    test_loader = prepare_chexpert_dataloaders(
-                        testing_data["Path"],
-                        testing_data[labels].values,
-                        testing_data,
-                        masked,
-                        base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset',
-                        shuffle=False,
-                        is_multilabel=multi_label,
-                    )
-                    weights = torch.load(
-                        "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_earlystop_valauc_and_cosine_lr_mimic_diagnostic_101.pth",
-                        map_location=device,
-                        weights_only=True,
-                    )
-                    test_model = DenseNet_Model(weights=None, out_feature=11)
-                elif task == "race":
-                    top_races = testing_data["race"].value_counts().index[:5]
-                    testing_data = testing_data[testing_data["race"].isin(top_races)].copy()
-                    labels = top_races.values
-                    testing_data["race_encoded"] = label_encoder.fit_transform(
-                        testing_data["race"]
-                    )
-                    test_loader = prepare_chexpert_dataloaders(
-                        testing_data["Path"],
-                        testing_data["race_encoded"].values,
-                        testing_data,
-                        masked,
-                        base_dir='/deep_learning/output/Sutariya/main/chexpert/dataset',
-                        shuffle=False,
-                        is_multilabel=multi_label,
-                    )
-                    weights = torch.load(
-                        "/deep_learning/output/Sutariya/main/mimic/checkpoints/model_traininig_race_101.pth",
-                        map_location=device,
-                        weights_only=True,
-                    )
-                    test_model = DenseNet_Model(weights=None, out_feature=5)
-                test_model.load_state_dict(weights)
-                model_testing(
-                    test_loader, test_model, labels, task, name, device, multi_label=multi_label
-                )
-        else:
-
-            if is_groupby:
-                groupby_testing(all_dataset_path, demographic_data_path, valid_output_path, model_path= "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_without_earlystop_and_cosine_lr_.pth", validate_data= False)
+                groupby_testing(all_dataset_path, demographic_data_path, None, valid_output_path, model_path= "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_earlystop_valauc_and_cosine_lr_mimic_diagnostic_101.pth", 
+                                task=task, name=name, device=device, masked=masked, is_multilabel=multi_label, validate_data= False, base_dir=base_dir)
             else:
                 testing_data = pd.read_csv(valid_output_path)
-                if task == "diagnostic":
-                    test_loader = prepare_mimic_dataloaders(
+                if normal_testing:
+                    if task == "diagnostic":
+                        test_loader = prepare_mimic_dataloaders(
                         testing_data["Path"],
                         testing_data[labels].values,
                         testing_data,
                         masked,
                         base_dir,
                         shuffle=False,
-                        is_multilabel=multi_label,
-                    )
-                    weights = torch.load(
-                        "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_cosine_label_smoothin_mimic_diagnostic_101.pth",
-                        map_location=device,
-                        weights_only=True,
-                    )
-                    test_model = DenseNet_Model(weights=None, out_feature=11)
-                elif task == "race":
-                    top_races = testing_data["race"].value_counts().index[:5]
-                    testing_data = testing_data[testing_data["race"].isin(top_races)].copy()
-                    labels = top_races.values
-                    testing_data["race_encoded"] = label_encoder.fit_transform(
-                        testing_data["race"]
-                    )
-                    test_loader = prepare_mimic_dataloaders(
-                        testing_data["Path"],
-                        testing_data["race_encoded"].values,
-                        testing_data,
-                        masked,
-                        base_dir,
-                        shuffle=False,
-                        is_multilabel=multi_label,
-                    )
-                    weights = torch.load(
-                        "/deep_learning/output/Sutariya/main/mimic/checkpoints/model_traininig_diagnostic_102.pth",
-                        map_location=device,
-                        weights_only=True,
-                    )
-                    test_model = DenseNet_Model(weights=None, out_feature=5)
-                elif task == "ethnicity":
-                    testing_data["ethnicity_encoded"] = label_encoder.fit_transform(
-                        testing_data["ethnicity"]
-                    )
-                    test_loader = prepare_mimic_dataloaders(
-                        testing_data["Path"],
-                        testing_data["ethnicity_encoded"].values,
-                        testing_data,
-                        masked,
-                        base_dir,
-                        shuffle=False,
-                        is_multilabel=multi_label,
-                    )
-                    weights = torch.load(
-                        "ethnicity_model_50.pth", map_location=device, weights_only=True
-                    )
-                    test_model = DenseNet_Model(weights=None, out_feature=3)
-                test_model.load_state_dict(weights)
-                model_testing(
+                        is_multilabel=multi_label)
+                        weights = torch.load(
+                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_cosine_label_smoothin_mimic_diagnostic_101.pth",
+                            map_location=device,
+                            weights_only=True,
+                        )
+                        test_model = DenseNet_Model(weights=None, out_feature=11)
+
+                    elif task == "race":
+                        top_races = testing_data["race"].value_counts().index[:5]
+                        testing_data = testing_data[testing_data["race"].isin(top_races)].copy()
+                        labels = top_races.values
+                        testing_data["race_encoded"] = label_encoder.fit_transform(
+                            testing_data["race"]
+                        )
+                        test_loader = prepare_mimic_dataloaders(
+                            testing_data["Path"],
+                            testing_data["race_encoded"].values,
+                            testing_data,
+                            masked,
+                            base_dir,
+                            shuffle=False,
+                            is_multilabel=multi_label,
+                        )
+                        weights = torch.load(
+                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/model_traininig_diagnostic_102.pth",
+                            map_location=device,
+                            weights_only=True,
+                        )
+                        test_model = DenseNet_Model(weights=None, out_feature=5)
+                    elif task == "ethnicity":
+                        testing_data["ethnicity_encoded"] = label_encoder.fit_transform(
+                            testing_data["ethnicity"]
+                        )
+                        test_loader = prepare_mimic_dataloaders(
+                            testing_data["Path"],
+                            testing_data["ethnicity_encoded"].values,
+                            testing_data,
+                            masked,
+                            base_dir,
+                            shuffle=False,
+                            is_multilabel=multi_label,
+                        )
+                        weights = torch.load(
+                            "ethnicity_model_50.pth", map_location=device, weights_only=True
+                        )
+                        test_model = DenseNet_Model(weights=None, out_feature=3)
+                    test_model.load_state_dict(weights)
+                    model_testing(
                     test_loader, test_model, labels, task, name, device, multi_label=multi_label
                 )
+                
+                else:
+                    if task == "diagnostic":
+                        model_testing_metrics_eval(
+                        testing_data, test_model, labels, task, name, masked=masked, device=device, multi_label=multi_label, group_name=None, threshold_finding=False,
+                        metrics_saving=True, threshold_file_path="deep_learning/output/Sutariya/main/mimic/evaluation_files/testing_earlystop_valauc_and_cosine_lr_mimic_diagnostic_102_threshold.csv", is_groupby_testing=True
+                    )
+
+                
+        else:
+            if is_groupby:
+                groupby_testing(all_dataset_path, demographic_data_path, None, valid_output_path, model_path= "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_earlystop_valauc_and_cosine_lr_mimic_diagnostic_101.pth", validate_data= False, base_dir=base_dir)
+            else:
+                testing_data = pd.read_csv(valid_output_path)
+                if normal_testing:
+                    if task == "diagnostic":
+                        test_loader = prepare_mimic_dataloaders(
+                        testing_data["Path"],
+                        testing_data[labels].values,
+                        testing_data,
+                        masked,
+                        base_dir,
+                        shuffle=False,
+                        is_multilabel=multi_label)
+                        weights = torch.load(
+                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_cosine_label_smoothin_mimic_diagnostic_101.pth",
+                            map_location=device,
+                            weights_only=True,
+                        )
+                        test_model = DenseNet_Model(weights=None, out_feature=11)
+
+                    elif task == "race":
+                        top_races = testing_data["race"].value_counts().index[:5]
+                        testing_data = testing_data[testing_data["race"].isin(top_races)].copy()
+                        labels = top_races.values
+                        testing_data["race_encoded"] = label_encoder.fit_transform(
+                            testing_data["race"]
+                        )
+                        test_loader = prepare_mimic_dataloaders(
+                            testing_data["Path"],
+                            testing_data["race_encoded"].values,
+                            testing_data,
+                            masked,
+                            base_dir,
+                            shuffle=False,
+                            is_multilabel=multi_label,
+                        )
+                        weights = torch.load(
+                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/model_traininig_diagnostic_102.pth",
+                            map_location=device,
+                            weights_only=True,
+                        )
+                        test_model = DenseNet_Model(weights=None, out_feature=5)
+                    elif task == "ethnicity":
+                        testing_data["ethnicity_encoded"] = label_encoder.fit_transform(
+                            testing_data["ethnicity"]
+                        )
+                        test_loader = prepare_mimic_dataloaders(
+                            testing_data["Path"],
+                            testing_data["ethnicity_encoded"].values,
+                            testing_data,
+                            masked,
+                            base_dir,
+                            shuffle=False,
+                            is_multilabel=multi_label,
+                        )
+                        weights = torch.load(
+                            "ethnicity_model_50.pth", map_location=device, weights_only=True
+                        )
+                        test_model = DenseNet_Model(weights=None, out_feature=3)
+                    test_model.load_state_dict(weights)
+                    model_testing(
+                    test_loader, test_model, labels, task, name, device, multi_label=multi_label
+                )
+                
+                else:
+                    if task == "diagnostic":
+                        test_model = DenseNet_Model(weights=None, out_feature=11)
+                        model_testing_metrics_eval(
+                        testing_data, test_model, labels, task, name, masked=masked, device=device, multi_label=multi_label, group_name=None, threshold_finding=False,
+                        metrics_saving=True, threshold_file_path="deep_learning/output/Sutariya/main/mimic/evaluation_files/testing_earlystop_valauc_and_cosine_lr_mimic_diagnostic_102_threshold.csv", is_groupby_testing=True
+                    )
+
+                
 
 

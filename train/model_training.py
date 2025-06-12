@@ -41,8 +41,8 @@ def model_training(
     base_optimizer = torch.optim.AdamW(
         model.parameters(), lr=0.0001, weight_decay=0.001
     )
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        base_optimizer,T_max=num_epochs, eta_min=10e-6)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        base_optimizer,T_0=15, T_mult=1, eta_min=10e-7)
     early_stopper = EarlyStopperByAUC(patience=5)
 
     # SWA will be initialized just before starting SWA training
