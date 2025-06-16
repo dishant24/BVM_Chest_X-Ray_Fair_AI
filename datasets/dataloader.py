@@ -6,6 +6,20 @@ from typing import Optional, Union
 
 import pandas as pd
 
+import cv2
+import numpy as np
+from PIL import Image
+
+class CLAHETransform:
+    def __init__(self, clip_limit=2.0, tile_grid_size=(8, 8)):
+        self.clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
+
+    def __call__(self, img):
+        img_np = np.array(img)
+        img_np = self.clahe.apply(img_np)
+        return Image.fromarray(img_np)
+
+
 def prepare_mimic_dataloaders(
     images_path: Union[pd.Series, list, str],
     labels: Union[pd.Series, list, None],
@@ -16,7 +30,8 @@ def prepare_mimic_dataloaders(
     is_multilabel: bool = True,
 ) -> DataLoader:
     transform = transforms.Compose(
-        [
+        [   
+            # CLAHETransform(clip_limit=2.0, tile_grid_size=(8, 8)),
             transforms.ToTensor(),
             transforms.Resize(
                 (224, 224), interpolation=transforms.InterpolationMode.BICUBIC
@@ -44,7 +59,7 @@ def prepare_mimic_dataloaders(
         is_multilabel=is_multilabel,
     )
     data_loader = DataLoader(
-        dataset, batch_size=4, shuffle=shuffle, num_workers=8, pin_memory=True
+        dataset, batch_size=4, shuffle=shuffle, num_workers=12, pin_memory=True
     )
 
     return data_loader

@@ -99,6 +99,9 @@ def model_testing_metrics_eval(
                 "FPR": group_fprs
             }, index=original_labels)
 
+            print(f"Testing AUROC Score for {group} is : {np.mean(group_aurocs)}")
+            
+
             df_group_metrics.to_csv(
                 f'/deep_learning/output/Sutariya/main/mimic/evaluation_files/{name}_{group}_metrics.csv'
             )

@@ -33,22 +33,22 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 if __name__ == "__main__":
     torch.cuda.empty_cache()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    random_state = 102
+    random_state = 101
     epoch = 30
     training = False
     task = "diagnostic"
     is_groupby = False
     dataset = "mimic"
-    masked = False
+    masked = True
     multi_label = True
     external_ood_test = False
-    normal_testing = True
+    normal_testing = False
 
     base_dir = "MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/"
     name = (
-        f"traininig_cosine_warmrestart_label_smoothing_{dataset}_{task}_{random_state}"
+        f"traininig_with_lung_masking_preprocessing_{dataset}_{task}_{random_state}"
         if training
-        else f"testing_earlystop_valauc_and_cosine_lr_{dataset}_{task}_{random_state}"
+        else f"testing_lung_masking_preprocessing_{dataset}_{task}_{random_state}"
     )
     label_encoder = LabelEncoder()
 
@@ -60,17 +60,19 @@ if __name__ == "__main__":
         if masked
         else "/deep_learning/output/Sutariya/main/mimic/dataset/train_clean_dataset.csv"
     )
-    valid_output_path = (
+    test_output_path = (
         "/deep_learning/output/Sutariya/main/mimic/dataset/test_mask_clean_dataset.csv"
         if masked
         else "/deep_learning/output/Sutariya/main/mimic/dataset/test_clean_dataset.csv"
     )
+    valid_output_path = (
+        "/deep_learning/output/Sutariya/main/mimic/dataset/validation_mask_clean_dataset.csv"
+        if masked
+        else "/deep_learning/output/Sutariya/main/mimic/dataset/validation_clean_dataset.csv"
+    )
     meta_file_path = "MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/mimic-cxr-2.0.0-metadata.csv.gz"
     train_mask_file_path = (
-        "/deep_learning/output/Sutariya/main/mimic/dataset/train_dataset.csv"
-    )
-    test_mask_file_path = (
-        "/deep_learning/output/Sutariya/main/mimic/dataset/test_dataset.csv"
+        "/deep_learning/output/Sutariya/main/mimic/dataset/train_mask_dataset.csv"
     )
     train_file_path = (
         "/deep_learning/output/Sutariya/main/mimic/dataset/train_dataset.csv"
@@ -97,36 +99,35 @@ if __name__ == "__main__":
         "Pleural Effusion",
     ]
 
-    # if not os.path.exists("/deep_learning/output/Sutariya/main/mimic/wandb"):
-    #     os.mkdir("/deep_learning/output/Sutariya/main/mimic/wandb")
-    # os.environ["WANDB_DIR"] = os.path.abspath(
-    #     "/deep_learning/output/Sutariya/main/mimic/wandb"
-    # )
+    if not os.path.exists("/deep_learning/output/Sutariya/main/mimic/wandb"):
+        os.mkdir("/deep_learning/output/Sutariya/main/mimic/wandb")
+    os.environ["WANDB_DIR"] = os.path.abspath(
+        "/deep_learning/output/Sutariya/main/mimic/wandb"
+    )
 
-    # wandb.init(
-    #     project=f"mimic_preprocessing_groupby_{task}"
-    #     if is_groupby
-    #     else f"mimic_preprocessing_{task}",
-    #     name=f"{name}",
-    #     dir="/deep_learning/output/Sutariya/main/mimic/wandb",
-    #     config={
-    #         "learning_rate": 0.0001,
-    #         "Task": task,
-    #         "save_model_file_name": name,
-    #         "Uncertain Labels": "-1 = 0, NAN = 0",
-    #         "epochs": epoch,
-    #         "Augmentation": "Yes",
-    #         "optimiser": "AdamW",
-    #         "architecture": "DenseNet121",
-    #         "dataset": dataset,
-    #         "Standardization": "Yes",
-    #     },
-    # )
+    wandb.init(
+        project=f"mimic_preprocessing_groupby_{task}"
+        if is_groupby
+        else f"mimic_preprocessing_{task}",
+        name=f"{name}",
+        dir="/deep_learning/output/Sutariya/main/mimic/wandb",
+        config={
+            "learning_rate": 0.0001,
+            "Task": task,
+            "save_model_file_name": name,
+            "Uncertain Labels": "-1 = 0, NAN = 0",
+            "epochs": epoch,
+            "Augmentation": "Yes",
+            "optimiser": "AdamW",
+            "architecture": "DenseNet121",
+            "dataset": dataset,
+            "Standardization": "Yes",
+            "PreprocessingMethod": "CHALE"
+        },
+    )
 
 
-
-
-    if not (os.path.exists(train_output_path) and os.path.exists(valid_output_path)):
+    if not (os.path.exists(train_output_path) and os.path.exists(test_output_path)):
         # Merge and clean the data
         total_data_merge = add_demographic_data(all_dataset_path, demographic_data_path)
         total_data_merge = add_metadata(total_data_merge, meta_file_path)
@@ -139,10 +140,10 @@ if __name__ == "__main__":
             )
             sampling_total_dataset = add_lung_mask_dataset(total_data_path_merge)
             if not (os.path.exists(train_mask_file_path)) and not (
-                os.path.exists(test_mask_file_path)
+                os.path.exists(test_output_path)
             ):
                 split_train_test_data(
-                    sampling_total_dataset, 40, train_file_path, test_file_path, "race"
+                    sampling_total_dataset, 35, train_mask_file_path, test_output_path, "race"
                 )
             else:
                 print("Data is already sampled spit into train and test")
@@ -156,7 +157,9 @@ if __name__ == "__main__":
             else:
                 print("Data is already sampled spit into train and test")
 
-        train_data = pd.read_csv(train_file_path)
+        
+        train_data = pd.read_csv(train_mask_file_path)  if masked else pd.read_csv(train_file_path)
+
         split_and_save_datasets(
             train_data,
             train_path=train_output_path,
@@ -167,7 +170,7 @@ if __name__ == "__main__":
         print("Splitting Completed...")
     else:
         print(
-            f"Files {train_output_path} && {valid_output_path} already exists. Skipping save..."
+            f"Files {train_output_path} && {test_output_path} already exists. Skipping save..."
         )
 
     if training:
@@ -299,10 +302,10 @@ if __name__ == "__main__":
             # external_train_data = pd.read_csv(external_train_path)
             # testing_data = pd.concat([external_val_data, external_train_data])
             if is_groupby:
-                groupby_testing(all_dataset_path, demographic_data_path, None, valid_output_path, model_path= "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_earlystop_valauc_and_cosine_lr_mimic_diagnostic_101.pth", 
+                groupby_testing(all_dataset_path, demographic_data_path, None, test_output_path, model_path= "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_earlystop_valauc_and_cosine_lr_mimic_diagnostic_101.pth", 
                                 task=task, name=name, device=device, masked=masked, is_multilabel=multi_label, validate_data= False, base_dir=base_dir)
             else:
-                testing_data = pd.read_csv(valid_output_path)
+                testing_data = pd.read_csv(test_output_path)
                 if normal_testing:
                     if task == "diagnostic":
                         test_loader = prepare_mimic_dataloaders(
@@ -366,6 +369,12 @@ if __name__ == "__main__":
                 
                 else:
                     if task == "diagnostic":
+                        test_model = DenseNet_Model(weights=None, out_feature=11)
+                        weights = torch.load(
+                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_clahe_preprocessing_mimic_diagnostic_101.pth",
+                            map_location=device, weights_only=True
+                        )
+                        test_model.load_state_dict(weights)
                         model_testing_metrics_eval(
                         testing_data, test_model, labels, task, name, masked=masked, device=device, multi_label=multi_label, group_name=None, threshold_finding=False,
                         metrics_saving=True, threshold_file_path="deep_learning/output/Sutariya/main/mimic/evaluation_files/testing_earlystop_valauc_and_cosine_lr_mimic_diagnostic_102_threshold.csv", is_groupby_testing=True
@@ -374,7 +383,7 @@ if __name__ == "__main__":
                 
         else:
             if is_groupby:
-                groupby_testing(all_dataset_path, demographic_data_path, None, valid_output_path, model_path= "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_earlystop_valauc_and_cosine_lr_mimic_diagnostic_101.pth", validate_data= False, base_dir=base_dir)
+                groupby_testing(all_dataset_path, demographic_data_path, None, valid_output_path, model_path= "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_clahe_preprocessing_mimic_diagnostic_101.pth", validate_data= False, base_dir=base_dir)
             else:
                 testing_data = pd.read_csv(valid_output_path)
                 if normal_testing:
@@ -388,7 +397,7 @@ if __name__ == "__main__":
                         shuffle=False,
                         is_multilabel=multi_label)
                         weights = torch.load(
-                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_cosine_label_smoothin_mimic_diagnostic_101.pth",
+                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_clahe_preprocessing_mimic_diagnostic_101.pth",
                             map_location=device,
                             weights_only=True,
                         )
@@ -411,7 +420,7 @@ if __name__ == "__main__":
                             is_multilabel=multi_label,
                         )
                         weights = torch.load(
-                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/model_traininig_diagnostic_102.pth",
+                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_clahe_preprocessing_mimic_diagnostic_101.pth",
                             map_location=device,
                             weights_only=True,
                         )
@@ -441,11 +450,12 @@ if __name__ == "__main__":
                 else:
                     if task == "diagnostic":
                         test_model = DenseNet_Model(weights=None, out_feature=11)
+                        weights = torch.load(
+                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_lung_masking_preprocessing_mimic_diagnostic_101.pth",
+                            map_location=device, weights_only=True
+                        )
+                        test_model.load_state_dict(weights)
                         model_testing_metrics_eval(
                         testing_data, test_model, labels, task, name, masked=masked, device=device, multi_label=multi_label, group_name=None, threshold_finding=False,
                         metrics_saving=True, threshold_file_path="deep_learning/output/Sutariya/main/mimic/evaluation_files/testing_earlystop_valauc_and_cosine_lr_mimic_diagnostic_102_threshold.csv", is_groupby_testing=True
                     )
-
-                
-
-

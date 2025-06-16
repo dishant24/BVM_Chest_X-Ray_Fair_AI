@@ -75,7 +75,7 @@ def merge_file_path_and_add_dicom_id(file_path: Union[list, str, os.path], dataf
         data.append((patient_id, study_id, dicom_id, p))
 
     df_paths = pd.DataFrame(
-        data, columns=["subject_id", "study_id", "dicom_id", "file_path"]
+        data, columns=["subject_id", "study_id", "dicom_id", "Path"]
     )
     df_paths["subject_id"] = df_paths["subject_id"].astype("int32")
     df_paths["study_id"] = df_paths["study_id"].astype("int32")
