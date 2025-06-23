@@ -9,7 +9,8 @@ import wandb
 from sklearn.preprocessing import LabelEncoder
 import sys 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+import numpy as np
+from datasets.data import MyDataset
 from data_preprocessing.process_dataset import (
     add_demographic_data,
     add_lung_mask_dataset,
@@ -21,13 +22,16 @@ from data_preprocessing.process_dataset import (
 )
 from datasets.dataloader import prepare_mimic_dataloaders, prepare_chexpert_dataloaders
 from datasets.split_store_dataset import split_and_save_datasets, split_train_test_data
-from evaluation.model_testing import model_testing, model_testing_metrics_eval
+from evaluation.model_testing import model_testing, model_testing_metrics_eval, calibrate_and_predict_dense_net
 from evaluation.groupby_eval import groupby_testing
-from models.build_model import DenseNet_Model, model_transfer_learning, Resnet_Model, Efficientnet_Model, ConvNeXt_Model
+from models.build_model import DenseNet_Model, model_transfer_learning
 from train.model_training import model_training
 from helper.losses import LabelSmoothingLoss
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from PIL import Image
+import os
+import cv2
+from tqdm import tqdm
+import multiprocessing as mp
 
 
 if __name__ == "__main__":
@@ -39,16 +43,16 @@ if __name__ == "__main__":
     task = "diagnostic"
     is_groupby = False
     dataset = "mimic"
-    masked = True
+    masked = False
     multi_label = True
     external_ood_test = False
     normal_testing = False
 
     base_dir = "MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/"
     name = (
-        f"traininig_with_lung_masking_preprocessing_{dataset}_{task}_{random_state}"
+        f"traininig_with_clahe_and_lung_masking_{dataset}_{task}_{random_state}"
         if training
-        else f"testing_lung_masking_preprocessing_{dataset}_{task}_{random_state}"
+        else f"testing_cosine_lr_aucstopping_labelsmoothing_{dataset}_{task}_{random_state}"
     )
     label_encoder = LabelEncoder()
 
@@ -71,9 +75,6 @@ if __name__ == "__main__":
         else "/deep_learning/output/Sutariya/main/mimic/dataset/validation_clean_dataset.csv"
     )
     meta_file_path = "MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/mimic-cxr-2.0.0-metadata.csv.gz"
-    train_mask_file_path = (
-        "/deep_learning/output/Sutariya/main/mimic/dataset/train_mask_dataset.csv"
-    )
     train_file_path = (
         "/deep_learning/output/Sutariya/main/mimic/dataset/train_dataset.csv"
     )
@@ -96,7 +97,7 @@ if __name__ == "__main__":
         "Pneumonia",
         "Atelectasis",
         "Pneumothorax",
-        "Pleural Effusion",
+        "Pleural Effusion"
     ]
 
     if not os.path.exists("/deep_learning/output/Sutariya/main/mimic/wandb"):
@@ -127,6 +128,7 @@ if __name__ == "__main__":
     )
 
 
+
     if not (os.path.exists(train_output_path) and os.path.exists(test_output_path)):
         # Merge and clean the data
         total_data_merge = add_demographic_data(all_dataset_path, demographic_data_path)
@@ -138,27 +140,31 @@ if __name__ == "__main__":
                 "MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/IMAGE_FILENAMES.txt",
                 sampling_total_dataset,
             )
-            sampling_total_dataset = add_lung_mask_dataset(total_data_path_merge)
-            if not (os.path.exists(train_mask_file_path)) and not (
+            total_masking_dataset = add_lung_mask_dataset(total_data_path_merge)
+            if not (os.path.exists(train_output_path)) and not (
                 os.path.exists(test_output_path)
             ):
                 split_train_test_data(
-                    sampling_total_dataset, 35, train_mask_file_path, test_output_path, "race"
+                    total_masking_dataset, 35, train_output_path, test_output_path, "race"
                 )
             else:
                 print("Data is already sampled spit into train and test")
         else:
-            if not (os.path.exists(train_file_path)) and not (
-                os.path.exists(test_file_path)
+            total_data_path_merge = merge_file_path_and_add_dicom_id(
+                "MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/IMAGE_FILENAMES.txt",
+                sampling_total_dataset,
+            )
+            if not (os.path.exists(train_output_path)) and not (
+                os.path.exists(test_output_path)
             ):
                 split_train_test_data(
-                    sampling_total_dataset, 40, train_file_path, test_file_path, "race"
+                    total_data_path_merge, 35, train_output_path, test_output_path, "race"
                 )
             else:
                 print("Data is already sampled spit into train and test")
 
         
-        train_data = pd.read_csv(train_mask_file_path)  if masked else pd.read_csv(train_file_path)
+        train_data = pd.read_csv(train_output_path)
 
         split_and_save_datasets(
             train_data,
@@ -172,11 +178,11 @@ if __name__ == "__main__":
         print(
             f"Files {train_output_path} && {test_output_path} already exists. Skipping save..."
         )
+    
 
     if training:
         train_data = pd.read_csv(train_output_path)
         val_data = pd.read_csv(valid_output_path)
-
         if task == "diagnostic":
             train_loader = prepare_mimic_dataloaders(
                 train_data["Path"],
@@ -371,7 +377,7 @@ if __name__ == "__main__":
                     if task == "diagnostic":
                         test_model = DenseNet_Model(weights=None, out_feature=11)
                         weights = torch.load(
-                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_clahe_preprocessing_mimic_diagnostic_101.pth",
+                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_lung_masking_preprocessingmimic_diagnostic_101.pth",
                             map_location=device, weights_only=True
                         )
                         test_model.load_state_dict(weights)
@@ -380,12 +386,11 @@ if __name__ == "__main__":
                         metrics_saving=True, threshold_file_path="deep_learning/output/Sutariya/main/mimic/evaluation_files/testing_earlystop_valauc_and_cosine_lr_mimic_diagnostic_102_threshold.csv", is_groupby_testing=True
                     )
 
-                
         else:
             if is_groupby:
                 groupby_testing(all_dataset_path, demographic_data_path, None, valid_output_path, model_path= "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_clahe_preprocessing_mimic_diagnostic_101.pth", validate_data= False, base_dir=base_dir)
             else:
-                testing_data = pd.read_csv(valid_output_path)
+                testing_data = pd.read_csv(test_output_path)
                 if normal_testing:
                     if task == "diagnostic":
                         test_loader = prepare_mimic_dataloaders(
@@ -397,7 +402,7 @@ if __name__ == "__main__":
                         shuffle=False,
                         is_multilabel=multi_label)
                         weights = torch.load(
-                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_clahe_preprocessing_mimic_diagnostic_101.pth",
+                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_lung_masking_preprocessingmimic_diagnostic_101.pth",
                             map_location=device,
                             weights_only=True,
                         )
@@ -420,7 +425,7 @@ if __name__ == "__main__":
                             is_multilabel=multi_label,
                         )
                         weights = torch.load(
-                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_clahe_preprocessing_mimic_diagnostic_101.pth",
+                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_lung_masking_preprocessingmimic_diagnostic_101.pth",
                             map_location=device,
                             weights_only=True,
                         )
@@ -444,14 +449,27 @@ if __name__ == "__main__":
                         test_model = DenseNet_Model(weights=None, out_feature=3)
                     test_model.load_state_dict(weights)
                     model_testing(
-                    test_loader, test_model, labels, task, name, device, multi_label=multi_label
+                    test_loader, test_model, testing_data, labels, task, name, device, multi_label=multi_label
                 )
                 
                 else:
+                    val_df = pd.read_csv(valid_output_path)  
+                    testing_data = pd.read_csv(test_output_path)  
+                    # val_loader = prepare_mimic_dataloaders(val_df["Path"], val_df[labels].values, val_df, masked=masked, base_dir='/deep_learning/output/Sutariya/MIMIC-CXR-MASK/', shuffle=False)
+                    # test_loader = prepare_mimic_dataloaders(testing_data["Path"], testing_data[labels].values, testing_data, masked=masked, base_dir='/deep_learning/output/Sutariya/MIMIC-CXR-MASK/', shuffle=False)
+
+                    # calibrated_probs, test_labels, calibrators = calibrate_and_predict_dense_net(
+                    #     model_class=DenseNet_Model,
+                    #     model_path="/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_lung_masking_preprocessingmimic_diagnostic_101.pth",
+                    #     val_loader=val_loader,
+                    #     test_loader=test_loader,
+                    #     device=device
+                    # )
+
                     if task == "diagnostic":
                         test_model = DenseNet_Model(weights=None, out_feature=11)
                         weights = torch.load(
-                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_lung_masking_preprocessing_mimic_diagnostic_101.pth",
+                            "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_auroc_stopping_cosine_label_smoothing_mimic_diagnostic_101.pth",
                             map_location=device, weights_only=True
                         )
                         test_model.load_state_dict(weights)
