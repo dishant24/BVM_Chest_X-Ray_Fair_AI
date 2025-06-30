@@ -73,11 +73,10 @@ if __name__ == "__main__":
     )
 
     external_data_path = "/deep_learning/output/Sutariya/main/mimic/dataset/validation_clean_dataset.csv"
-    training_file_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/train_dataset.csv"
-    test_file_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/test_dataset.csv"
     demographic_data_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/demographics_CXP.csv"
     train_output_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/train_clean_dataset.csv"
     val_output_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/validation_clean_dataset.csv"
+    test_output_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/test_clean_dataset.csv"
     all_dataset_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/train.csv"
 
     labels = [
@@ -100,15 +99,15 @@ if __name__ == "__main__":
         all_data_merge = merge_dataframe(all_data, demographic_data)
         all_data_clean = cleaning_datasets(all_data_merge)
         all_dataset = sampling_datasets(all_data_clean)
-        if not (os.path.exists(training_file_path)) and not (
-            os.path.exists(test_file_path)
+        if not (os.path.exists(train_output_path)) and not (
+            os.path.exists(test_output_path)
         ):
             split_train_test_data(
-                all_dataset, 20, training_file_path, test_file_path, "race"
+                all_dataset, 35, train_output_path, test_output_path, "race"
             )
         else:
             print("Data is already sampled spit into train and test")
-        train_data = pd.read_csv(training_file_path)
+        train_data = pd.read_csv(train_output_path)
         split_and_save_datasets(
             train_data,
             train_output_path,
@@ -224,10 +223,10 @@ if __name__ == "__main__":
                 shuffle=True,
                 is_multilabel=multi_label,
             )
-            model = DenseNet_Model(
-                weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1,
-                out_feature=11,
-            )
+            # model = DenseNet_Model(
+            #     weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1,
+            #     out_feature=11,
+            # )
         elif task == "race":
             top_races = training_dataset["race"].value_counts().index[:5]
             labels = top_races.values
@@ -311,23 +310,23 @@ if __name__ == "__main__":
         else:
             print("Task value should be diagnostic or race or ethnicity...")
 
-        model_training(
-            model,
-            train_loader,
-            val_loader,
-            criterion,
-            task,
-            labels,
-            epoch,
-            device=device,
-            multi_label=multi_label,
-            is_swa=True,
-        )
+        # model_training(
+        #     model,
+        #     train_loader,
+        #     val_loader,
+        #     criterion,
+        #     task,
+        #     labels,
+        #     epoch,
+        #     device=device,
+        #     multi_label=multi_label,
+        #     is_swa=True,
+        # )
 
-        torch.save(
-            model.state_dict(),
-            f"/deep_learning/output/Sutariya/main/chexpert/checkpoint/{task}/{name}.pth",
-        )
+        # torch.save(
+        #     model.state_dict(),
+        #     f"/deep_learning/output/Sutariya/main/chexpert/checkpoint/{task}/{name}.pth",
+        # )
 
     else:
         if external_ood_test:

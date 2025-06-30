@@ -20,6 +20,9 @@ class DenseNet_Model(nn.Module):
           z = self.relu(z)
           return self.clf(z)
 
+     def predict_proba(self, x):
+          return torch.sigmoid(self(x))
+
 class Resnet_Model(nn.Module):
      def __init__(self, weights, out_feature):
           super().__init__()

@@ -61,7 +61,7 @@ def model_training(
         train_loss = 0.0
         all_train_labels, all_train_preds = [], []
 
-        for inputs, labels in train_loader:
+        for inputs, labels, _ in train_loader:
             inputs, labels = inputs.to(device), labels.to(device)
             base_optimizer.zero_grad()
             outputs = model(inputs)
@@ -92,7 +92,7 @@ def model_training(
         val_loss = 0.0
         all_val_labels, all_val_preds = [], []
         with torch.no_grad():
-            for inputs, labels in val_loader:
+            for inputs, labels, _ in val_loader:
                 inputs, labels = inputs.to(device), labels.to(device)
                 outputs = model(inputs)
                 loss = loss_function(outputs, labels)

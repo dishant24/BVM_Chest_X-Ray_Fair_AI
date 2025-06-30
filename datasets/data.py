@@ -67,6 +67,7 @@ class MyDataset(Dataset):
         labels: Union[list, np.ndarray, pd.Series],
         dataframe: pd.DataFrame,
         masked: bool = False,
+        clahe: bool = False,
         transform: torchvision.transforms.Compose = None,
         base_dir: Optional[str] = None,
         is_multilabel: bool = True,
@@ -74,19 +75,15 @@ class MyDataset(Dataset):
         self.image_paths = list(image_paths)
         self.labels = labels
         self.masked = masked
+        self.clahe = clahe
         self.df = dataframe.reset_index(drop=True)
         self.base_dir = base_dir
         self.transform = transform
         self.is_multilabel = is_multilabel
-        self.masker = ApplyLungMask(margin_radius=60, original_shape=(512, 512), image_shape=(224, 224))
-        self.mask_cache: Dict[str, np.ndarray] = {}
 
+        self.create_clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
         if self.masked:
-            rows = [row for _, row in self.df.iterrows()] 
-            results = Parallel(n_jobs=multiprocessing.cpu_count(), backend='loky')(
-                delayed(compute_mask_entry)(row, self.masker) for row in tqdm(rows)
-            )
-            self.mask_cache = dict(results)
+            self.base_dir = '/deep_learning/output/Sutariya/MIMIC-CXR-MASK/'
 
     def __len__(self) -> int:
         return len(self.image_paths)
@@ -96,12 +93,11 @@ class MyDataset(Dataset):
         full_path = os.path.join(self.base_dir, file_path) if self.base_dir else file_path
 
         image = Image.open(full_path).convert("L").resize((224, 224))
-
-        if self.masked:
-            image_np = np.array(image)
-            mask = self.mask_cache[file_path]
-            masked_image_np = image_np * mask
-            image = Image.fromarray(masked_image_np.astype(np.uint8))
+        
+        if self.clahe:
+            img_np = np.array(image)
+            img_np = self.create_clahe.apply(img_np)
+            image =  Image.fromarray(img_np)
 
         if self.transform:
             image = self.transform(image)
@@ -111,4 +107,4 @@ class MyDataset(Dataset):
         else:
             label = torch.tensor(self.labels[idx], dtype=torch.long)
 
-        return image, label
+        return image, label, self.image_paths[idx]

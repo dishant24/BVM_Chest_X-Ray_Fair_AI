@@ -44,7 +44,8 @@ def log_roc_auc(
         for i in range(num_classes):
             fpr, tpr, _ = roc_curve(y_true_bin[:, i], y_scores[:, i])
             roc_auc = auc(fpr, tpr)
-            ax.plot(fpr, tpr, lw=2, label=f"{labels[i]} (AUC = {roc_auc:.2f})")
+            label = str(labels[i])
+            ax.plot(fpr, tpr, lw=2, label=f"{label} (AUC = {roc_auc:.2f})")
     else:
         num_classes = y_true.shape[1]
         for i in range(num_classes):

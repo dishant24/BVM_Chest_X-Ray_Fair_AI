@@ -48,7 +48,7 @@ def split_train_test_data(dataset: pd.DataFrame, N: int, train_path: Union[list,
         df_group = group_by_data[group]
         for disease in diseases:
             print(f"Computed for {disease}...")
-            if len(df_group[disease]) < 20:
+            if len(df_group[disease]) < N:
                 sampled_test = sample_test(df_group, disease, len(df_group[disease]))
             else:
                 sampled_test = sample_test(df_group, disease, N)
