@@ -5,9 +5,12 @@ import seaborn as sns
 from sklearn.metrics import roc_auc_score
 import torch
 import wandb
+from datasets.dataloader import prepare_mimic_dataloaders
+from models.build_model import DenseNet_Model
 
 def get_labels(test_loader, weight, device, model, multi_label):
     model.eval()
+    print(weight)
     model.to(device)
     weights = torch.load(weight,
                         map_location=device,
@@ -43,7 +46,12 @@ def get_labels(test_loader, weight, device, model, multi_label):
 # Generate Strip Plot
 # -------------------------
 
-def get_auroc_by_groups(test_loader, weights, device, model, labels, test_data, avg_method, multi_label):
+def get_auroc_by_groups(test_loader, weights, device, labels, test_data, avg_method, multi_label):
+
+    model = DenseNet_Model(
+                weights=None,
+                out_feature=11
+            )
 
     all_labels, all_preds, all_ids = get_labels(test_loader, weights, device, model, multi_label)
     df_preds = pd.DataFrame(all_preds, columns=[f'{label}_pred' for label in labels])
@@ -65,7 +73,7 @@ def get_auroc_by_groups(test_loader, weights, device, model, labels, test_data, 
                 auc = float('nan')   
             auc_records.append({
                 'Disease': label,
-                'ROC AUC': auc,
+                'AUROC': auc,
                 'Race': race_group
             })
 
@@ -79,46 +87,97 @@ def get_auroc_by_groups(test_loader, weights, device, model, labels, test_data, 
             auc = float('nan')
         auc_records.append({
                 'Disease': label,
-                'ROC AUC': auc,
+                'AUROC': auc,
                 'Race': 'all'
             })
     auc_df = pd.DataFrame(auc_records)
     return auc_df
 
 
-def generate_strip_plot(test_loader, lung_test_loader, clahe_test_loader, weights, lung_weights, clahe_weights, device, model, labels, test_data, multi_label):
+def generate_plot(weights, lung_weights, clahe_weights, device, test_data, multi_label, base_dir):
 
+    labels = [
+        "No Finding",
+        "Enlarged Cardiomediastinum",
+        "Cardiomegaly",
+        "Lung Opacity",
+        "Lung Lesion",
+        "Edema",
+        "Consolidation",
+        "Pneumonia",
+        "Atelectasis",
+        "Pneumothorax",
+        "Pleural Effusion"]
+
+    diag_loader = prepare_mimic_dataloaders(
+               test_data["Path"],
+               test_data[labels].values,
+               test_data,
+               masked=False,
+               clahe=False,
+               base_dir=base_dir,
+               shuffle=False,
+               is_multilabel=True,
+           )
+
+    diag_lung_loader = prepare_mimic_dataloaders(
+               test_data["Path"],
+               test_data[labels].values,
+               test_data,
+               masked=True,
+               clahe=False,
+               base_dir=base_dir,
+               shuffle=False,
+               is_multilabel=True,
+           )
+    diag_clahe_loader = prepare_mimic_dataloaders(
+               test_data["Path"],
+               test_data[labels].values,
+               test_data,
+               masked=False,
+               clahe=True,
+               base_dir=base_dir,
+               shuffle=False,
+               is_multilabel=True,
+           )
         
-    auc_df = get_auroc_by_groups(test_loader, weights, device, model, labels, test_data, 'macro', multi_label)
-    auc_lung_df = get_auroc_by_groups(lung_test_loader, lung_weights, device, model, labels, test_data, 'macro', multi_label)
-    auc_clahe_df = get_auroc_by_groups(clahe_test_loader, clahe_weights, device, model, labels, test_data, 'macro', multi_label)
+    auc_df = get_auroc_by_groups(diag_loader, weights, device, labels, test_data, 'macro', multi_label)
+    auc_lung_df = get_auroc_by_groups(diag_lung_loader, lung_weights, device, labels, test_data, 'macro', multi_label)
+    auc_clahe_df = get_auroc_by_groups(diag_clahe_loader, clahe_weights, device, labels, test_data, 'macro', multi_label)
 
-    fig, axs = plt.subplots(3, 1, figsize=(14, 16), sharex=True)
+    diseases = auc_df['Disease'].unique()
+    races = auc_df['Race'].unique()
+    x_base = np.arange(len(diseases)) * 2
+    offset = np.linspace(-0.6, 0.6, len(races))  # Wider spacing for more races
 
-    # First plot: Normal
-    sns.stripplot(data=auc_df, x='Disease', y='ROC AUC', hue='Race', size=8, jitter=True, ax=axs[0])
-    axs[0].set_title("Baseline Model - ROC AUC")
-    axs[0].tick_params(axis='x', rotation=45)
+    def plot_aligned(ax, df, title):
+        for i, race in enumerate(races):
+            x_vals = []
+            y_vals = []
+            y_errs = []
 
-    # Second plot: Lung
-    sns.stripplot(data=auc_lung_df, x='Disease', y='ROC AUC', hue='Race', size=8, jitter=True, ax=axs[1])
-    axs[1].set_title("Baseline with lung masking - ROC AUC")
-    axs[1].tick_params(axis='x', rotation=45)
-    axs[1].legend_.remove()
+            for j, disease in enumerate(diseases):
+                group = df[(df['Disease'] == disease) & (df['Race'] == race)]
+                x_vals.append(x_base[j] + offset[i])
+                y_vals.append(group['AUROC'].values[0])
+                y_errs.append(0.0)
 
-    # Third plot: CLAHE
-    sns.stripplot(data=auc_clahe_df, x='Disease', y='ROC AUC', hue='Race', size=8, jitter=True, ax=axs[2])
-    axs[2].set_title("Baseline with Clahe processing - ROC AUC")
-    axs[2].tick_params(axis='x', rotation=45)
-    axs[2].legend_.remove()
+            ax.errorbar(x_vals, y_vals, yerr=y_errs, fmt='o', label=race, capsize=2)
 
-    # Add one shared legend (from last plot)
-    handles, labels = axs[0].get_legend_handles_labels()
-    fig.legend(handles, labels, title="Race", loc='upper right', bbox_to_anchor=(1.12, 0.98))
+        ax.set_title(title)
+        ax.set_ylim(0.5, 1.0)
+        ax.set_xticks(x_base)
+        ax.set_xticklabels(diseases, rotation=45, ha='right')
+        ax.grid(True, axis='y')
 
+    # Create plots
+    fig, axs = plt.subplots(3, 1, figsize=(14, 16), sharex=True, sharey=True)
+
+    plot_aligned(axs[0], auc_df, "Baseline Model - AUROC")
+    plot_aligned(axs[1], auc_lung_df, "Baseline with Lung Masking - AUROC")
+    plot_aligned(axs[2], auc_clahe_df, "Baseline with CLAHE - AUROC")
+
+    axs[0].legend(title='Race', bbox_to_anchor=(1.02, 1), loc='upper left')
     plt.tight_layout()
-
-    # Log the full figure to W&B
     wandb.log({"Per-Disease AUC by Race (All Methods)": wandb.Image(fig)})
-
     plt.show()

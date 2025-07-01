@@ -91,7 +91,7 @@ if __name__ == "__main__":
         "Atelectasis",
         "Pneumothorax",
         "Pleural Effusion",
-    ]
+    ]cc
 
     if not (os.path.exists(train_output_path) and os.path.exists(val_output_path)):
         all_data = pd.read_csv(all_dataset_path)

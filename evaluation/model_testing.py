@@ -90,7 +90,6 @@ def model_calibration(weight_path, device, val_loader, test_loader, class_names)
     plt.close()
 
 
-
 def model_testing_metrics_eval(
     dataset:pd.DataFrame,
     model: torch.nn.Module,

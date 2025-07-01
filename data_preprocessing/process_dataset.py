@@ -189,11 +189,11 @@ def cleaning_datasets(traning_dataset: pd.DataFrame, is_chexpert: bool =True)-> 
         int
     )  # In The limits of fair medical imaging paper they treat uncertain label as negative and fill NA with 0.
 
-    # Select only Frontal View
     traning_dataset.loc[traning_dataset["race"].str.startswith("WHITE"), "race"] = "WHITE"
     traning_dataset.loc[traning_dataset["race"].str.startswith("BLACK"), "race"] = "BLACK"
     traning_dataset.loc[traning_dataset["race"].str.startswith("ASIAN"), "race"] = "ASIAN"
     
+    # Select only Frontal View
     if is_chexpert:
         traning_dataset = traning_dataset[
             traning_dataset["Frontal/Lateral"] == "Frontal"
@@ -202,33 +202,5 @@ def cleaning_datasets(traning_dataset: pd.DataFrame, is_chexpert: bool =True)-> 
         traning_dataset = traning_dataset[
             traning_dataset.ViewPosition.isin(["AP", "PA"])
         ]
-
-        traning_dataset.loc[traning_dataset.race.isin([
-            "NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER",
-            "AMERICAN INDIAN/ALASKA NATIVE"]),
-            "race"] = "native"
-
-        traning_dataset.loc[traning_dataset.race.isin([
-            "HISPANIC OR LATINO",
-            "HISPANIC/LATINO - PUERTO RICAN",
-            "HISPANIC/LATINO - GUATEMALAN",
-            "HISPANIC/LATINO - HONDURAN",
-            "HISPANIC/LATINO - COLUMBIAN",
-            "HISPANIC/LATINO - DOMINICAN",
-            "HISPANIC/LATINO - SALVADORAN",
-            "HISPANIC/LATINO - CENTRAL AMERICAN",
-            "HISPANIC/LATINO - CUBAN",
-            "HISPANIC/LATINO - MEXICAN",
-            "PORTUGUESE",
-            "SOUTH AMERICAN"]),
-            "race"] = "hisp/lat/SA"
-
-        traning_dataset.loc[traning_dataset.race.isin([
-            "UNKNOWN",
-            "OTHER",
-            "UNABLE TO OBTAIN",
-            "PATIENT DECLINED TO ANSWER",
-            "MULTIPLE RACE/ETHNICITY"]),
-            "race"] = "unknown/other"
 
     return traning_dataset

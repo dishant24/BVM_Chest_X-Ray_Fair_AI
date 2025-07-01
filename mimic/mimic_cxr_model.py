@@ -33,7 +33,7 @@ import os
 import cv2
 from tqdm import tqdm
 import multiprocessing as mp
-from helper.generate_plot import generate_strip_plot
+from helper.generate_plot import generate_plot
 from helper.generate_result_tables import generate_tabel
 
 
@@ -42,14 +42,14 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     random_state = 101
     epoch = 30
-    task = "race"
+    task = "diagnostic"
     dataset = "mimic"
     training = True
     masked = False
     clahe= False
-    is_groupby = False
-    multi_label = False
-    external_ood_test = False
+    is_groupby = True
+    multi_label = True
+    external_ood_test = True
     #Change the path acrroding to model usage
     trained_model_path = 'traininig_with_auroc_stopping_cosine_label_smoothing_mimic_diagnostic_101' if task == 'race' else None
 
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     name = (
         f"traininig_with_clahe_preprocessing_{dataset}_{task}_{random_state}"
         if training
-        else f"calibration_with_auroc_stopping_cosine_label_smoothing_{dataset}_{task}_{random_state}"
+        else f"plot_result_calculation_{dataset}_{task}_{random_state}"
     )
 
     external_test_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/test_clean_dataset.csv"
@@ -131,6 +131,17 @@ if __name__ == "__main__":
         print(
             f"Files {train_output_path} && {test_output_path} already exists. Skipping save..."
         )
+
+    # test_data = pd.read_csv(test_output_path)
+    # race_weights = "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_auroc_stopping_cosine_label_smoothing_mimic_race_101.pth"
+    # race_lung_weights = "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_lung_masking_preprocessing_mimic_race_101.pth"
+    # race_clahe_weights= "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_clahe_preprocessing_mimic_race_101.pth"
+    # weights = "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_auroc_stopping_cosine_label_smoothing_mimic_diagnostic_101.pth"
+    # lung_weights = "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_lung_masking_preprocessingmimic_diagnostic_101.pth"
+    # clahe_weights = "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_clahe_preprocessing_mimic_diagnostic_101.pth"
+    
+    # generate_plot(weights, lung_weights, clahe_weights, device, test_data, multi_label, base_dir)
+    # generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights, lung_weights, clahe_weights, device, test_data, base_dir)
      
     if task == "diagnostic":
         labels = [
@@ -298,7 +309,7 @@ if __name__ == "__main__":
                         testing_data["race"]
                         )
             
-            labels = top_races.values
+            labels = label_encoder.classes_
             test_loader = prepare_mimic_dataloaders(
                             testing_data["Path"],
                             testing_data["race_encoded"].values,
