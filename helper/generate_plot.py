@@ -4,13 +4,13 @@ import pandas as pd
 import seaborn as sns
 from sklearn.metrics import roc_auc_score
 import torch
+from sklearn.utils import resample
 import wandb
-from datasets.dataloader import prepare_mimic_dataloaders
+from datasets.dataloader import prepare_dataloaders
 from models.build_model import DenseNet_Model
 
 def get_labels(test_loader, weight, device, model, multi_label):
     model.eval()
-    print(weight)
     model.to(device)
     weights = torch.load(weight,
                         map_location=device,
@@ -41,7 +41,6 @@ def get_labels(test_loader, weight, device, model, multi_label):
         all_ids
     )
 
-
 # -------------------------
 # Generate Strip Plot
 # -------------------------
@@ -55,9 +54,12 @@ def get_auroc_by_groups(test_loader, weights, device, labels, test_data, avg_met
 
     all_labels, all_preds, all_ids = get_labels(test_loader, weights, device, model, multi_label)
     df_preds = pd.DataFrame(all_preds, columns=[f'{label}_pred' for label in labels])
+    df_true = pd.DataFrame(all_labels, columns=[f'{label}_true' for label in labels])
     df_preds['id'] = all_ids
+    df_true['id'] = all_ids
     test_data = test_data.copy()
     test_data['id'] = test_data['Path']
+    test_data = test_data.merge(df_true, on='id', how='inner')
     test_data = test_data.merge(df_preds, on='id', how='inner')
 
     auc_records = []
@@ -74,7 +76,7 @@ def get_auroc_by_groups(test_loader, weights, device, labels, test_data, avg_met
             auc_records.append({
                 'Disease': label,
                 'AUROC': auc,
-                'Race': race_group
+                'Race': race_group,
             })
 
     for label in labels:
@@ -88,11 +90,81 @@ def get_auroc_by_groups(test_loader, weights, device, labels, test_data, avg_met
         auc_records.append({
                 'Disease': label,
                 'AUROC': auc,
-                'Race': 'all'
+                'Race': 'all',
             })
     auc_df = pd.DataFrame(auc_records)
-    return auc_df
+    return auc_df, test_data
 
+
+def get_bootstrap_auc(test_loader, weights, device, labels, test_data, multi_label, n_bootstraps=100, ci=0.95, seed=42):
+    np.random.seed(seed)
+    model = DenseNet_Model(
+                weights=None,
+                out_feature=11
+            )
+
+    all_labels, all_preds, all_ids = get_labels(test_loader, weights, device, model, multi_label)
+    df_preds = pd.DataFrame(all_preds, columns=[f'{label}_pred' for label in labels])
+    df_true = pd.DataFrame(all_labels, columns=[f'{label}_true' for label in labels])
+    df_preds['id'] = all_ids
+    df_true['id'] = all_ids
+    test_data = test_data.copy()
+    test_data['id'] = test_data['Path']
+    test_data = test_data.merge(df_true, on='id', how='inner')
+    test_data = test_data.merge(df_preds, on='id', how='inner')
+
+    auc_records = []
+    for race_group, group_df in test_data.groupby('race'):
+        for label in labels:
+
+            y_true = group_df[label]
+            y_pred = group_df[f'{label}_pred']
+            bootstrapped_scores = []
+
+            for _ in range(n_bootstraps):
+                indices = resample(np.arange(len(y_true)))
+                score = roc_auc_score(y_true.iloc[indices], y_pred.iloc[indices])
+                bootstrapped_scores.append(score)
+
+            sorted_scores = np.sort(bootstrapped_scores)
+            lower = np.percentile(sorted_scores, (1 - ci) / 2 * 100)
+            upper = np.percentile(sorted_scores, (1 + ci) / 2 * 100)
+            error = np.array([lower, upper])
+            auc = sorted_scores.mean()
+            auc_records.append({
+                'Disease': label,
+                'AUROC': auc,
+                'Race': race_group,
+                'error': error
+            })
+
+    for label in labels:
+        y_true = test_data[label]
+        y_pred = test_data[f'{label}_pred']
+        bootstrapped_scores = []
+
+        for _ in range(n_bootstraps):
+
+            indices = resample(np.arange(len(y_true)))
+            score = roc_auc_score(y_true.iloc[indices], y_pred.iloc[indices])
+            bootstrapped_scores.append(score)
+
+        sorted_scores = np.sort(bootstrapped_scores)
+        lower = np.percentile(sorted_scores, (1 - ci) / 2 * 100)
+        upper = np.percentile(sorted_scores, (1 + ci) / 2 * 100)
+        error = np.array([lower, upper])
+        auc = sorted_scores.mean()
+        auc_records.append({
+            'Disease': label,
+            'AUROC': auc,
+            'Race': 'all',
+            'error': error
+        })
+
+    auc_df = pd.DataFrame(auc_records)
+    print(auc_df)
+    
+    return auc_df
 
 def generate_plot(weights, lung_weights, clahe_weights, device, test_data, multi_label, base_dir):
 
@@ -109,7 +181,7 @@ def generate_plot(weights, lung_weights, clahe_weights, device, test_data, multi
         "Pneumothorax",
         "Pleural Effusion"]
 
-    diag_loader = prepare_mimic_dataloaders(
+    diag_loader = prepare_dataloaders(
                test_data["Path"],
                test_data[labels].values,
                test_data,
@@ -120,7 +192,7 @@ def generate_plot(weights, lung_weights, clahe_weights, device, test_data, multi
                is_multilabel=True,
            )
 
-    diag_lung_loader = prepare_mimic_dataloaders(
+    diag_lung_loader = prepare_dataloaders(
                test_data["Path"],
                test_data[labels].values,
                test_data,
@@ -130,7 +202,7 @@ def generate_plot(weights, lung_weights, clahe_weights, device, test_data, multi
                shuffle=False,
                is_multilabel=True,
            )
-    diag_clahe_loader = prepare_mimic_dataloaders(
+    diag_clahe_loader = prepare_dataloaders(
                test_data["Path"],
                test_data[labels].values,
                test_data,
@@ -141,34 +213,38 @@ def generate_plot(weights, lung_weights, clahe_weights, device, test_data, multi
                is_multilabel=True,
            )
         
-    auc_df = get_auroc_by_groups(diag_loader, weights, device, labels, test_data, 'macro', multi_label)
-    auc_lung_df = get_auroc_by_groups(diag_lung_loader, lung_weights, device, labels, test_data, 'macro', multi_label)
-    auc_clahe_df = get_auroc_by_groups(diag_clahe_loader, clahe_weights, device, labels, test_data, 'macro', multi_label)
+    auc_df = get_bootstrap_auc(diag_loader, weights, device, labels, test_data, multi_label)
+    auc_lung_df = get_bootstrap_auc(diag_lung_loader, lung_weights, device, labels, test_data, multi_label)
+    auc_clahe_df = get_bootstrap_auc(diag_clahe_loader, clahe_weights, device, labels, test_data, multi_label)
 
     diseases = auc_df['Disease'].unique()
     races = auc_df['Race'].unique()
     x_base = np.arange(len(diseases)) * 2
-    offset = np.linspace(-0.6, 0.6, len(races))  # Wider spacing for more races
-
+    offset = np.linspace(-0.6, 0.6, len(races))
     def plot_aligned(ax, df, title):
         for i, race in enumerate(races):
             x_vals = []
             y_vals = []
-            y_errs = []
+            errors = []
 
             for j, disease in enumerate(diseases):
                 group = df[(df['Disease'] == disease) & (df['Race'] == race)]
                 x_vals.append(x_base[j] + offset[i])
-                y_vals.append(group['AUROC'].values[0])
-                y_errs.append(0.0)
+                y = group['AUROC'].values[0]
+                y_vals.append(y)
 
-            ax.errorbar(x_vals, y_vals, yerr=y_errs, fmt='o', label=race, capsize=2)
+                lower, upper = group['error'].values[0]
+                errors.append([y - lower, upper - y])
+
+            errors_np = np.array(errors).T
+            ax.errorbar(x_vals, y_vals, yerr=errors_np, fmt='o', label=race, capsize=2)
 
         ax.set_title(title)
         ax.set_ylim(0.5, 1.0)
         ax.set_xticks(x_base)
         ax.set_xticklabels(diseases, rotation=45, ha='right')
         ax.grid(True, axis='y')
+
 
     # Create plots
     fig, axs = plt.subplots(3, 1, figsize=(14, 16), sharex=True, sharey=True)

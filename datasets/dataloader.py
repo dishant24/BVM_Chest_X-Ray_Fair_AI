@@ -1,4 +1,4 @@
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from torchvision import transforms
 
 from datasets.data import MyDataset
@@ -6,13 +6,13 @@ from typing import Optional, Union
 
 import pandas as pd
 
-
-def prepare_mimic_dataloaders(
+def prepare_dataloaders(
     images_path: Union[pd.Series, list, str],
     labels: Union[pd.Series, list, None],
     dataframe: pd.DataFrame,
     masked: bool=False,
     clahe: bool=False,
+    reweight : bool=False,
     base_dir: Optional[str] = None,
     shuffle: bool = False,
     is_multilabel: bool = True,
@@ -46,8 +46,19 @@ def prepare_mimic_dataloaders(
         base_dir,
         is_multilabel=is_multilabel,
     )
-    data_loader = DataLoader(
-        dataset, batch_size=8, shuffle=shuffle, num_workers=8, pin_memory=True, drop_last=True
-    )
 
+    if reweight:
+        total_race = sum(dataframe['race'].value_counts())
+        race_weights = {r: total_race / c for r, c in dataframe['race'].value_counts().items()}
+        dataframe['sample_weight'] = dataframe['race'].map(race_weights)
+        sample_weights = dataframe['sample_weight'].values
+        sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(dataframe), replacement=True)
+
+        data_loader = DataLoader(
+            dataset, batch_size=8, num_workers=8, pin_memory=True, drop_last=True, sampler=sampler
+        )
+    else:
+        data_loader = DataLoader(
+            dataset, batch_size=8, shuffle=shuffle, num_workers=8, pin_memory=True, drop_last=True
+        )
     return data_loader

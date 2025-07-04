@@ -1,6 +1,6 @@
 from helper.generate_plot import get_auroc_by_groups, get_labels
 from sklearn.preprocessing import LabelEncoder
-from datasets.dataloader import prepare_mimic_dataloaders
+from datasets.dataloader import prepare_dataloaders
 from models.build_model import DenseNet_Model
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_auc_score
@@ -59,7 +59,7 @@ def generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights,
         "Pleural Effusion"]
 
 
-    diag_loader = prepare_mimic_dataloaders(
+    diag_loader = prepare_dataloaders(
                test_data["Path"],
                test_data[labels].values,
                test_data,
@@ -70,7 +70,7 @@ def generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights,
                is_multilabel=True,
            )
 
-    diag_lung_loader = prepare_mimic_dataloaders(
+    diag_lung_loader = prepare_dataloaders(
                test_data["Path"],
                test_data[labels].values,
                test_data,
@@ -80,7 +80,7 @@ def generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights,
                shuffle=False,
                is_multilabel=True,
            )
-    diag_clahe_loader = prepare_mimic_dataloaders(
+    diag_clahe_loader = prepare_dataloaders(
                test_data["Path"],
                test_data[labels].values,
                test_data,
@@ -91,7 +91,7 @@ def generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights,
                is_multilabel=True,
            )
 
-    race_loader = prepare_mimic_dataloaders(
+    race_loader = prepare_dataloaders(
         test_data["Path"],
         test_data["race_encoded"].values,
         test_data,
@@ -101,7 +101,7 @@ def generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights,
         shuffle=False,
         is_multilabel=False,
     )
-    race_lung_loader = prepare_mimic_dataloaders(
+    race_lung_loader = prepare_dataloaders(
         test_data["Path"],
         test_data["race_encoded"].values,
         test_data,
@@ -111,7 +111,7 @@ def generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights,
         shuffle=False,
         is_multilabel=False,
     )
-    race_clahe_loader = prepare_mimic_dataloaders(
+    race_clahe_loader = prepare_dataloaders(
         test_data["Path"],
         test_data["race_encoded"].values,
         test_data,
@@ -136,10 +136,8 @@ def generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights,
 
     # Combine all
     disease_auroc_df = pd.concat([auc_df, auc_lung_df, auc_clahe_df], ignore_index=True)
-
     disease_auroc_df = disease_auroc_df.pivot_table(index=['Disease', 'Race'], columns='Preprocessing', values='AUROC')
     disease_auroc_df = disease_auroc_df.reset_index()
-
 
     race_auc_df['Preprocessing'] = 'Baseline'
     race_auc_lung_df['Preprocessing'] = 'Lung Masking'

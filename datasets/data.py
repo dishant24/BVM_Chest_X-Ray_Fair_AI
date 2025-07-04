@@ -19,13 +19,13 @@ def decode_rle_numpy(rle_str: Optional[str], shape: Tuple[int, int]) -> np.ndarr
         return np.zeros(shape, dtype=np.uint8)
 
     rle = np.fromiter(map(int, rle_str.strip().split()), dtype=np.int32)
-    starts = rle[0::2] - 1  
+    starts = rle[0::2] - 1
     lengths = rle[1::2]
 
-    mask = np.zeros(shape[0]*shape[1], dtype=np.uint8)
+    mask = np.zeros(shape[0] * shape[1], dtype=np.uint8)
     for start, length in zip(starts, lengths):
-        mask[start:start+length] = 1
-    return mask.reshape((shape[1], shape[0])).T
+        mask[start:start + length] = 1
+    return mask.reshape(shape)
 
 class ApplyLungMask:
     def __init__(
@@ -89,8 +89,10 @@ class MyDataset(Dataset):
         return len(self.image_paths)
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        print(self.base_dir)
         file_path = self.image_paths[idx]
-        full_path = os.path.join(self.base_dir, file_path) if self.base_dir else file_path
+        print(file_path)
+        full_path = os.path.join(self.base_dir, file_path)
 
         image = Image.open(full_path).convert("L").resize((224, 224))
         

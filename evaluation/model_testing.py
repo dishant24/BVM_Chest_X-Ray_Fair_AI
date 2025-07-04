@@ -3,7 +3,7 @@ import torch
 import pandas as pd
 import wandb
 
-from datasets.dataloader import prepare_mimic_dataloaders, prepare_chexpert_dataloaders
+from datasets.dataloader import prepare_dataloaders
 from sklearn.metrics import accuracy_score, precision_recall_curve, roc_auc_score, roc_curve, confusion_matrix
 
 from models.build_model import DenseNet_Model
@@ -70,9 +70,9 @@ def model_calibration(weight_path, device, val_loader, test_loader, class_names)
 
     for i in range(test_labels.shape[1]):  # Loop over 11 classes
         frac_pos, mean_pred = calibration_curve(
-            test_labels[:, i], calib_test_prob[i], n_bins=10, strategy='quantile'
+            test_labels[:, i], calib_test_prob[i], n_bins=5, strategy='quantile'
         )
-        plt.plot(mean_pred, frac_pos, marker='o', label=class_names[i])
+        plt.plot(mean_pred, frac_pos, marker='o', label=class_names[i], alpha=0.6)
 
     # Plot perfect calibration line
     plt.plot([0, 1], [0, 1], "k--", label="Perfect Calibration")
@@ -98,6 +98,7 @@ def model_testing_metrics_eval(
     name,
     masked:bool=False,
     clahe:bool=False,
+    base_dir: str =None,
     device: Optional[torch.device] =None,
     multi_label: bool =True,
     group_name: str =None,
@@ -136,7 +137,7 @@ def model_testing_metrics_eval(
             assert not group_data.duplicated("subject_id").any(), f"Duplicate subject_ids in group {group}"
             assert not group_data.duplicated("Path").any(), f"Duplicate image paths in group {group}"
 
-            test_loader = prepare_mimic_dataloaders(
+            test_loader = prepare_dataloaders(
                 group_data["Path"],
                 group_data[label].values,
                 group_data,
@@ -187,12 +188,12 @@ def model_testing_metrics_eval(
                 f'/deep_learning/output/Sutariya/main/mimic/evaluation_files/{name}_{group}_metrics.csv'
             )
     else:
-        test_loader = prepare_chexpert_dataloaders(
+        test_loader = prepare_dataloaders(
                             dataset["Path"],
                             dataset[label].values,
                             dataset,
                             masked,
-                            base_dir="MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/",
+                            base_dir,
                             shuffle=False,
                             is_multilabel=multi_label,
                         )
@@ -289,7 +290,7 @@ def model_testing(
     device: Optional[torch.device] =None,
     multi_label: bool =True,
     is_groupby: bool = False,
-    group_name: str =None,
+    group_name: str =None
 ):
     """
     Evaluates a multi-label classification model on a test dataset.
@@ -312,79 +313,78 @@ def model_testing(
     # image_path = dataset['Path']
     # subject_id, study_id = dataset['subject_id'], dataset['study_id']
 
-    if not is_groupby:
-        test_loader = prepare_mimic_dataloaders(
-                        dataset["Path"],
-                        dataset[original_labels].values,
-                        dataset,
-                        masked,
-                        clahe,
-                        base_dir,
-                        shuffle=False,
-                        is_multilabel=multi_label)
+    test_loader = prepare_dataloaders(
+                    dataset["Path"],
+                    dataset[original_labels].values,
+                    dataset,
+                    masked,
+                    clahe,
+                    reweight=False
+                    base_dir=base_dir,
+                    shuffle=False,
+                    is_multilabel=multi_label)
 
-        with torch.no_grad():
-            for inputs, labels, _ in test_loader:
-                inputs, labels = inputs.to(device), labels.to(device)
+    with torch.no_grad():
+        for inputs, labels, _ in test_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
 
-                outputs = model(inputs)
-                preds = (
-                    torch.sigmoid(outputs).detach().cpu().numpy()
-                    if multi_label
-                    else torch.softmax(outputs, dim=1).detach().cpu().numpy()
-                )
-
-                all_test_labels.extend(labels.cpu().numpy())
-                all_test_preds.extend(preds)
-
-        if multi_label:
-            auc_roc_test = roc_auc_score(
-                all_test_labels, all_test_preds, average="weighted"
+            outputs = model(inputs)
+            preds = (
+                torch.sigmoid(outputs).detach().cpu().numpy()
+                if multi_label
+                else torch.softmax(outputs, dim=1).detach().cpu().numpy()
             )
-            test_preds_binary = (np.array(all_test_preds) > 0.4).astype(int)
-            test_acc = accuracy_score(all_test_labels, test_preds_binary)
-        else:
-            auc_roc_test = roc_auc_score(
-                all_test_labels, all_test_preds, average="weighted", multi_class="ovo"
-            )
-            test_pred_classes = np.argmax(all_test_preds, axis=1)
-            test_acc = accuracy_score(all_test_labels, test_pred_classes)
 
-        # df_preds = pd.DataFrame(all_test_preds_np, columns=[f"logit_{label}" for label in original_labels])
-        # df_labels = pd.DataFrame(all_test_labels_np, columns=[f"label_{label}" for label in original_labels])
+            all_test_labels.extend(labels.cpu().numpy())
+            all_test_preds.extend(preds)
 
-        # df_group_metrics = pd.DataFrame({
-        #             "race": race,
-        #             "view_position":view_position,
-        #             "subject_id":subject_id,
-        #             "study_id":study_id,
-        #             "image_path":image_path
-        #         })
-        # df_all = pd.concat([df_preds, df_labels, df_group_metrics], axis=1)
-
-        # df_all.to_csv(
-        #             f'/deep_learning/output/Sutariya/main/mimic/evaluation_files/{name}_metrics.csv'
-        #         )
-        log_roc_auc(
-            all_test_labels,
-            all_test_preds,
-            original_labels,
-            task,
-            log_name=f"Testing ROC-AUC for {task} {group_name}",
-            multilabel=multi_label,
-            group_name=group_name,
+    if multi_label:
+        auc_roc_test = roc_auc_score(
+            all_test_labels, all_test_preds, average="macro"
         )
-        wandb.log(
-            {"Testing ROC_AUC_Score": auc_roc_test}
-        ) if group_name is None else wandb.log(
-            {f"{group_name} Testing ROC_AUC_Score": auc_roc_test}
-        )
-        # log_confusion_matrix(all_test_labels, all_test_preds, log_name="Testing Confusion Matrix")
-        print(
-            f"Test ROC-AUC Score: {auc_roc_test:.4f}, Testing Accuracy Score: {test_acc:.4f}"
-        )
-
+        test_preds_binary = (np.array(all_test_preds) > 0.4).astype(int)
+        test_acc = accuracy_score(all_test_labels, test_preds_binary)
     else:
+        auc_roc_test = roc_auc_score(
+            all_test_labels, all_test_preds, average="macro", multi_class="ovo"
+        )
+        test_pred_classes = np.argmax(all_test_preds, axis=1)
+        test_acc = accuracy_score(all_test_labels, test_pred_classes)
+
+    # df_preds = pd.DataFrame(all_test_preds_np, columns=[f"logit_{label}" for label in original_labels])
+    # df_labels = pd.DataFrame(all_test_labels_np, columns=[f"label_{label}" for label in original_labels])
+
+    # df_group_metrics = pd.DataFrame({
+    #             "race": race,
+    #             "view_position":view_position,
+    #             "subject_id":subject_id,
+    #             "study_id":study_id,
+    #             "image_path":image_path
+    #         })
+    # df_all = pd.concat([df_preds, df_labels, df_group_metrics], axis=1)
+
+    # df_all.to_csv(
+    #             f'/deep_learning/output/Sutariya/main/mimic/evaluation_files/{name}_metrics.csv'
+    #         )
+    log_roc_auc(
+        all_test_labels,
+        all_test_preds,
+        original_labels,
+        task,
+        log_name=f"Testing macro ROC-AUC for {task}",
+        multilabel=multi_label,
+        group_name=group_name,
+    )
+    wandb.log(
+        {"Testing macro ROC_AUC_Score": auc_roc_test}
+    ) if group_name is None else wandb.log(
+        {f"{group_name} Testing macro ROC_AUC_Score": auc_roc_test}
+    )
+    # log_confusion_matrix(all_test_labels, all_test_preds, log_name="Testing Confusion Matrix")
+    print(
+        f"Test ROC-AUC Score: {auc_roc_test:.4f}, Testing Accuracy Score: {test_acc:.4f}"
+    )
+    if is_groupby:
         if task == 'diagnostic':
             race_groupby_dataset = get_group_by_data(dataset, "race")
             for group in race_groupby_dataset.keys():
@@ -392,13 +392,14 @@ def model_testing(
                 assert not group_data.duplicated("subject_id").any(), f"Duplicate subject_ids in group {group}"
                 assert not group_data.duplicated("Path").any(), f"Duplicate image paths in group {group}"
 
-                test_loader = prepare_mimic_dataloaders(
+                test_loader = prepare_dataloaders(
                     group_data["Path"],
                     group_data[original_labels].values,
                     group_data,
                     masked,
                     clahe,
-                    base_dir="MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/",
+                    reweight=False,
+                    base_dir=base_dir,
                     shuffle=False,  
                     is_multilabel=multi_label
                 )
