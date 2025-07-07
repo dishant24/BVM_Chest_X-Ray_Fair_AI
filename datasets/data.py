@@ -89,9 +89,7 @@ class MyDataset(Dataset):
         return len(self.image_paths)
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        print(self.base_dir)
         file_path = self.image_paths[idx]
-        print(file_path)
         full_path = os.path.join(self.base_dir, file_path)
 
         image = Image.open(full_path).convert("L").resize((224, 224))

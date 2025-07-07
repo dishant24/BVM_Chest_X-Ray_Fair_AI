@@ -21,12 +21,12 @@ def prepare_dataloaders(
         [   
             transforms.ToTensor(),
             transforms.Resize(
-                (250, 250), interpolation=transforms.InterpolationMode.BICUBIC
+                (224, 224), interpolation=transforms.InterpolationMode.BICUBIC
             ),
             transforms.Lambda(lambda i: i.repeat(3, 1, 1) if i.shape[0] == 1 else i),
             transforms.Normalize(mean=[0.5062] * 3, std=[0.2873] * 3),
             transforms.RandomResizedCrop(
-                (224, 224),
+                (200, 200),
                 scale=(0.9, 1.0),
                 ratio=(0.9, 1.1),
                 interpolation=transforms.InterpolationMode.BICUBIC,
@@ -37,13 +37,13 @@ def prepare_dataloaders(
         ]
     )
     dataset = MyDataset(
-        images_path,
-        labels,
-        dataframe,
-        masked,
-        clahe,
-        transform,
-        base_dir,
+        image_paths= images_path,
+        labels= labels,
+        dataframe= dataframe,
+        masked= masked,
+        clahe= clahe,
+        transform= transform,
+        base_dir= base_dir,
         is_multilabel=is_multilabel,
     )
 
@@ -55,10 +55,10 @@ def prepare_dataloaders(
         sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(dataframe), replacement=True)
 
         data_loader = DataLoader(
-            dataset, batch_size=8, num_workers=8, pin_memory=True, drop_last=True, sampler=sampler
+            dataset, batch_size=8, num_workers=8, pin_memory=True, prefetch_factor= 2, drop_last=True, sampler=sampler
         )
     else:
         data_loader = DataLoader(
-            dataset, batch_size=8, shuffle=shuffle, num_workers=8, pin_memory=True, drop_last=True
+            dataset, batch_size=8, shuffle=shuffle, num_workers=8, prefetch_factor=2, pin_memory=True, drop_last=True
         )
     return data_loader

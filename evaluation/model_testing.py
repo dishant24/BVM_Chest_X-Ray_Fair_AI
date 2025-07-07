@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 import pandas as pd
+import torch.utils.data.dataloader
+import torchvision
 import wandb
 
 from datasets.dataloader import prepare_dataloaders
@@ -90,27 +92,25 @@ def model_calibration(weight_path, device, val_loader, test_loader, class_names)
     plt.close()
 
 
-def model_testing_metrics_eval(
-    dataset:pd.DataFrame,
+def model_eval_metrics_saving(
+    dataframe: pd.DataFrame,
     model: torch.nn.Module,
     original_labels: List[str],
-    task: str,
-    name,
+    dataset: str,
+    name: str,
     masked:bool=False,
     clahe:bool=False,
+    reweight:bool=False,
     base_dir: str =None,
     device: Optional[torch.device] =None,
     multi_label: bool =True,
-    group_name: str =None,
-    threshold_finding: bool=False,
-    metrics_saving: bool=False,
-    threshold_file_path: str=None,
     is_groupby_testing:bool =False
 ):
 
+    torch.backends.cudnn.benchmark = True
     model.to(device)
     model.eval()
-    label = [
+    labels = [
         "No Finding",
         "Enlarged Cardiomediastinum",
         "Cardiomegaly",
@@ -124,34 +124,98 @@ def model_testing_metrics_eval(
         "Pleural Effusion",
     ]
 
-    top_races = dataset["race"].value_counts().index[:5]
-    dataset = dataset[dataset["race"].isin(top_races)].copy()
+    test_loader = prepare_dataloaders(
+                            images_path= dataframe["Path"],
+                            labels= dataframe[labels].values,
+                            dataframe= dataframe,
+                            masked= masked,
+                            clahe= clahe,
+                            reweight= reweight,
+                            base_dir= base_dir,
+                            shuffle=False,
+                            is_multilabel=multi_label,
+                        )
+
+    all_test_labels, all_test_preds = [], []
+
+    with torch.no_grad():
+        for inputs, labels, _ in test_loader:
+            inputs, labels = inputs.cuda(non_blocking=True), labels.cuda(non_blocking=True)
+
+            outputs = model(inputs)
+            preds = (
+                torch.sigmoid(outputs).detach().cpu().numpy()
+                if multi_label
+                else torch.softmax(outputs, dim=1).detach().cpu().numpy()
+            )
+            
+            all_test_labels.extend(labels.cpu().numpy())
+            all_test_preds.extend(preds)
+
+    all_test_preds_np = np.array(all_test_preds)
+    all_test_labels_np = np.array(all_test_labels)
+    n_samples, n_classes = all_test_preds_np.shape
+
+    best_thresholds = []
+    for i in range(n_classes):
+        y_true = all_test_labels_np[:, i]
+        y_pred_proba = all_test_preds_np[:, i]
+    
+        precision, recall, thresholds = precision_recall_curve(y_true, y_pred_proba)
+        
+        f1 = 2 * (precision * recall) / (precision + recall)
+        
+        best_idx = np.argmax(f1)
+        best_threshold = thresholds[best_idx]
+        best_thresholds.append(best_threshold)
+    df_threshold = pd.DataFrame(best_thresholds, columns=["best_thresholds"])
+    df_threshold.to_csv(f"/deep_learning/output/Sutariya/main/{dataset}/evaluation_files/{name}_thresholds.csv", index=False)
+
+    aurocs = []
+    fprs = []
+    threshold_df = pd.read_csv(f"/deep_learning/output/Sutariya/main/{dataset}/evaluation_files/{name}_thresholds.csv")
+    thresholds = threshold_df['best_thresholds'].values
+    for i in range(n_classes):
+        y_true = all_test_labels_np[:, i]
+        y_pred_proba = all_test_preds_np[:, i]
+        y_pred = (y_pred_proba >= thresholds[i]).astype(int)
+        auroc = roc_auc_score(
+                y_true, y_pred_proba)
+        aurocs.append(auroc)
+        tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+        fpr = fp/(fp+tn)
+        fprs.append(fpr)
+
+    df_fpr = pd.DataFrame.from_dict(fprs, orient="index")
+    df_auc = pd.DataFrame.from_dict(aurocs, orient="index")
+    df_metric = pd.concat([df_fpr, df_auc])
+
+    df_metric.to_csv(f'/deep_learning/output/Sutariya/main/{dataset}/evaluation_files/{name}_metrics.csv', index=False)
 
     if is_groupby_testing:
-        if threshold_file_path is None:
-            raise AssertionError("Threshold path must be define to calculate and save metrics")
-        # Group-wise evaluation using the same thresholds
-        race_groupby_dataset = get_group_by_data(dataset, "race")
+        
+        race_groupby_dataset = get_group_by_data(dataframe, "race")
         for group in race_groupby_dataset.keys():
             group_data = race_groupby_dataset[group]
             assert not group_data.duplicated("subject_id").any(), f"Duplicate subject_ids in group {group}"
             assert not group_data.duplicated("Path").any(), f"Duplicate image paths in group {group}"
 
             test_loader = prepare_dataloaders(
-                group_data["Path"],
-                group_data[label].values,
-                group_data,
-                masked,
-                clahe,
-                base_dir="MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/",
-                shuffle=False,  
-                is_multilabel=multi_label
+                    images_path= group_data["Path"],
+                    labels= group_data[labels].values,
+                    dataframe= group_data,
+                    masked= masked,
+                    clahe= clahe,
+                    reweight= reweight,
+                    base_dir= base_dir,
+                    shuffle=True,
+                    is_multilabel=multi_label,
             )
 
             group_preds, group_labels = [], []
             with torch.no_grad():
-                for inputs, labels in test_loader:
-                    inputs, labels = inputs.to(device), labels.to(device)
+                for inputs, labels, _ in test_loader:
+                    inputs, labels = inputs.cuda(non_blocking=True), labels.cuda(non_blocking=True)
                     outputs = model(inputs)
                     preds = torch.sigmoid(outputs).cpu().numpy() if multi_label else torch.softmax(outputs, dim=1).cpu().numpy()
                     group_preds.extend(preds)
@@ -160,7 +224,7 @@ def model_testing_metrics_eval(
             group_preds_np = np.array(group_preds)
             group_labels_np = np.array(group_labels)
             n_samples, n_classes = group_preds_np.shape
-            threshold_df = pd.read_csv(threshold_file_path)
+            threshold_df = pd.read_csv(f"/deep_learning/output/Sutariya/main/{dataset}/evaluation_files/{name}_thresholds.csv")
             thresholds = threshold_df['best_thresholds'].values
 
             group_fprs, group_aurocs = [], []
@@ -180,107 +244,16 @@ def model_testing_metrics_eval(
                 "AUROC": group_aurocs,
                 "FPR": group_fprs
             }, index=original_labels)
-
-            print(f"Testing AUROC Score for {group} is : {np.mean(group_aurocs)}")
             
-
             df_group_metrics.to_csv(
-                f'/deep_learning/output/Sutariya/main/mimic/evaluation_files/{name}_{group}_metrics.csv'
+                f'/deep_learning/output/Sutariya/main/{dataset}/evaluation_files/{name}_{group}_metrics.csv'
             )
-    else:
-        test_loader = prepare_dataloaders(
-                            dataset["Path"],
-                            dataset[label].values,
-                            dataset,
-                            masked,
-                            base_dir,
-                            shuffle=False,
-                            is_multilabel=multi_label,
-                        )
-
-        all_test_labels, all_test_preds = [], []
-
-        with torch.no_grad():
-            for inputs, labels in test_loader:
-                inputs, labels = inputs.to(device), labels.to(device)
-
-                outputs = model(inputs)
-                preds = (
-                    torch.sigmoid(outputs).detach().cpu().numpy()
-                    if multi_label
-                    else torch.softmax(outputs, dim=1).detach().cpu().numpy()
-                )
-                
-                all_test_labels.extend(labels.cpu().numpy())
-                all_test_preds.extend(preds)
-
-        if multi_label:
-            auc_roc_test = roc_auc_score(
-                all_test_labels, all_test_preds, average="weighted"
-            )
-            test_preds_binary = (np.array(all_test_preds) > 0.4).astype(int)
-            test_acc = accuracy_score(all_test_labels, test_preds_binary)
-        else:
-            auc_roc_test = roc_auc_score(
-                all_test_labels, all_test_preds, average="weighted", multi_class="ovo"
-            )
-            test_pred_classes = np.argmax(all_test_preds, axis=1)
-            test_acc = accuracy_score(all_test_labels, test_pred_classes)
-
-        all_test_preds_np = np.array(all_test_preds)
-        all_test_labels_np = np.array(all_test_labels)
-        n_samples, n_classes = all_test_preds_np.shape
-
-        if threshold_finding:
-            best_thresholds = []
-            for i in range(n_classes):
-                y_true = all_test_labels_np[:, i]
-                y_pred_proba = all_test_preds_np[:, i]
-            
-                precision, recall, thresholds = precision_recall_curve(y_true, y_pred_proba)
-                
-                f1 = 2 * (precision * recall) / (precision + recall)
-                
-                best_idx = np.argmax(f1)
-                best_threshold = thresholds[best_idx]
-                best_thresholds.append(best_threshold)
-            df_threshold = pd.DataFrame(best_thresholds, columns=["best_thresholds"])
-            df_threshold.to_csv(threshold_file_path, index=False)
-
-        if metrics_saving:
-            if threshold_file_path is None:
-               raise AssertionError("Threshold path must be define to calculate and save metrics")
-            aurocs = []
-            fprs = []
-            threshold_df = pd.read_csv(threshold_file_path)
-            thresholds = threshold_df['best_thresholds'].values
-            for i in range(n_classes):
-                y_true = all_test_labels_np[:, i]
-                y_pred_proba = all_test_preds_np[:, i]
-                y_pred = (y_pred_proba >= thresholds[i]).astype(int)
-                auroc = roc_auc_score(
-                        y_true, y_pred_proba)
-                aurocs.append(auroc)
-                tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
-                fpr = fp/(fp+tn)
-                fprs.append(fpr)
-
-            df_race = dataset[["race"]].reset_index(drop=True)
-            df_fpr = pd.DataFrame.from_dict(fprs, orient="index")
-            df_auc = pd.DataFrame.from_dict(aurocs, orient="index")
-            df_preds = pd.DataFrame(all_test_preds_np, columns=[f"logit_{label}" for label in original_labels])
-            df_labels = pd.DataFrame(all_test_labels_np, columns=[f"label_{label}" for label in original_labels])
-
-            df_combined = pd.concat([df_preds, df_labels, df_race], axis=1)
-            df_metric = pd.concat([df_fpr, df_auc])
-
-            df_metric.to_csv(f'/deep_learning/output/Sutariya/main/mimic/evaluation_files/{name}_metrics.csv', index=False)
-            df_combined.to_csv(f'/deep_learning/output/Sutariya/main/mimic/evaluation_files/{name}_predictions.csv', index=False)
 
 
 def model_testing(
+    test_loader: torch.utils.data.DataLoader,
     model: torch.nn.Module,
-    dataset: pd.DataFrame,
+    dataframe: pd.DataFrame,
     original_labels: List[str],
     masked: bool,
     clahe: bool,
@@ -289,11 +262,10 @@ def model_testing(
     base_dir:str,
     device: Optional[torch.device] =None,
     multi_label: bool =True,
-    is_groupby: bool = False,
-    group_name: str =None
+    is_groupby: bool = False
 ):
     """
-    Evaluates a multi-label classification model on a test dataset.
+    Evaluates a multi-label classification model on a test dataframe.
 
     Args:
     - test_loader (DataLoader): DataLoader for test data.
@@ -301,32 +273,23 @@ def model_testing(
     - device (torch.device): Device to run inference on (CPU or GPU).
 
     Returns:
-    - auc_roc (float): ROC-AUC score for the test dataset.
+    - auc_roc (float): ROC-AUC score for the test dataframe.
     """
 
     model.to(device)
+    torch.backends.cudnn.benchmark = True
     model.eval()
 
     all_test_labels, all_test_preds = [], []
-    # race = dataset['race']
-    # view_position = dataset['ViewPosition']
-    # image_path = dataset['Path']
-    # subject_id, study_id = dataset['subject_id'], dataset['study_id']
+    # race = dataframe['race']
+    # view_position = dataframe['ViewPosition']
+    # image_path = dataframe['Path']
+    # subject_id, study_id = dataframe['subject_id'], dataframe['study_id']
 
-    test_loader = prepare_dataloaders(
-                    dataset["Path"],
-                    dataset[original_labels].values,
-                    dataset,
-                    masked,
-                    clahe,
-                    reweight=False
-                    base_dir=base_dir,
-                    shuffle=False,
-                    is_multilabel=multi_label)
 
     with torch.no_grad():
         for inputs, labels, _ in test_loader:
-            inputs, labels = inputs.to(device), labels.to(device)
+            inputs, labels = inputs.cuda(non_blocking=True), labels.cuda(non_blocking=True)
 
             outputs = model(inputs)
             preds = (
@@ -351,42 +314,24 @@ def model_testing(
         test_pred_classes = np.argmax(all_test_preds, axis=1)
         test_acc = accuracy_score(all_test_labels, test_pred_classes)
 
-    # df_preds = pd.DataFrame(all_test_preds_np, columns=[f"logit_{label}" for label in original_labels])
-    # df_labels = pd.DataFrame(all_test_labels_np, columns=[f"label_{label}" for label in original_labels])
-
-    # df_group_metrics = pd.DataFrame({
-    #             "race": race,
-    #             "view_position":view_position,
-    #             "subject_id":subject_id,
-    #             "study_id":study_id,
-    #             "image_path":image_path
-    #         })
-    # df_all = pd.concat([df_preds, df_labels, df_group_metrics], axis=1)
-
-    # df_all.to_csv(
-    #             f'/deep_learning/output/Sutariya/main/mimic/evaluation_files/{name}_metrics.csv'
-    #         )
     log_roc_auc(
-        all_test_labels,
-        all_test_preds,
-        original_labels,
-        task,
+        y_true= all_test_labels,
+        y_scores= all_test_preds,
+        labels= original_labels,
+        task= task,
         log_name=f"Testing macro ROC-AUC for {task}",
         multilabel=multi_label,
-        group_name=group_name,
+        group_name=None,
     )
-    wandb.log(
-        {"Testing macro ROC_AUC_Score": auc_roc_test}
-    ) if group_name is None else wandb.log(
-        {f"{group_name} Testing macro ROC_AUC_Score": auc_roc_test}
-    )
+    wandb.log({"Testing macro ROC_AUC_Score": auc_roc_test})
+    
     # log_confusion_matrix(all_test_labels, all_test_preds, log_name="Testing Confusion Matrix")
     print(
         f"Test ROC-AUC Score: {auc_roc_test:.4f}, Testing Accuracy Score: {test_acc:.4f}"
     )
     if is_groupby:
         if task == 'diagnostic':
-            race_groupby_dataset = get_group_by_data(dataset, "race")
+            race_groupby_dataset = get_group_by_data(dataframe, "race")
             for group in race_groupby_dataset.keys():
                 group_data = race_groupby_dataset[group]
                 assert not group_data.duplicated("subject_id").any(), f"Duplicate subject_ids in group {group}"
@@ -406,8 +351,8 @@ def model_testing(
 
                 group_preds, group_labels = [], []
                 with torch.no_grad():
-                    for inputs, labels in test_loader:
-                        inputs, labels = inputs.to(device), labels.to(device)
+                    for inputs, labels, _ in test_loader:
+                        inputs, labels = inputs.cuda(non_blocking=True), labels.cuda(non_blocking=True)
                         outputs = model(inputs)
                         preds = torch.sigmoid(outputs).cpu().numpy() if multi_label else torch.softmax(outputs, dim=1).cpu().numpy()
                         group_preds.extend(preds)
@@ -426,21 +371,17 @@ def model_testing(
                     test_pred_classes = np.argmax(group_preds, axis=1)
                     test_acc = accuracy_score(group_labels, test_pred_classes)
                 log_roc_auc(
-                    group_labels,
-                    group_preds,
-                    original_labels,
-                    task,
-                    log_name=f"Testing ROC-AUC for {task} {group_name}",
+                    y_true= group_labels,
+                    y_scores= group_preds,
+                    labels= original_labels,
+                    task= task,
+                    log_name=f"Testing macro ROC-AUC for {task}",
                     multilabel=multi_label,
-                    group_name=group_name,
+                    group_name=group,
                 )
-                wandb.log(
-                    {"Testing ROC_AUC_Score": auc_roc_test}
-                ) if group_name is None else wandb.log(
-                    {f"{group_name} Testing ROC_AUC_Score": auc_roc_test}
-                )
+                wandb.log({"{group} Testing ROC_AUC_Score": auc_roc_test}) 
                 print(
-                    f"Test ROC-AUC Score: {auc_roc_test:.4f}, Testing Accuracy Score: {test_acc:.4f}"
+                    f"{group} Test ROC-AUC Score: {auc_roc_test:.4f}, Testing Accuracy Score: {test_acc:.4f}"
                 )
         else:
             raise AssertionError("Couldn't find race groupby on race prediction")

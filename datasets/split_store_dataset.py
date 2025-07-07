@@ -36,8 +36,8 @@ def split_train_test_data(dataset: pd.DataFrame, N: int, train_path: Union[list,
         "Pneumothorax",
         "Pleural Effusion",
     ]
-    # Select only top 5 values of the column
-    groups = dataset[split_by].value_counts().index[:5].values
+    # Select only top 4 values of the column
+    groups = dataset[split_by].value_counts().index[:4].values
     print(groups)
     df = dataset.copy()
     train_group = df.groupby(split_by)
@@ -59,7 +59,7 @@ def split_train_test_data(dataset: pd.DataFrame, N: int, train_path: Union[list,
     train_df = df[
         ~df["subject_id"].isin(final_test_df["subject_id"].unique())
     ].reset_index(drop=True)
-
+    
     # Save
     final_test_df.to_csv(test_path, index=False)
     train_df.to_csv(train_path, index=False)

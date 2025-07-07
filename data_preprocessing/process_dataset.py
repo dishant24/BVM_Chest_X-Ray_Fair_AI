@@ -192,7 +192,30 @@ def cleaning_datasets(traning_dataset: pd.DataFrame, is_chexpert: bool =True)-> 
     traning_dataset.loc[traning_dataset["race"].str.startswith("WHITE"), "race"] = "WHITE"
     traning_dataset.loc[traning_dataset["race"].str.startswith("BLACK"), "race"] = "BLACK"
     traning_dataset.loc[traning_dataset["race"].str.startswith("ASIAN"), "race"] = "ASIAN"
-    
+
+    traning_dataset.loc[traning_dataset.race.isin([
+            "HISPANIC OR LATINO",
+            "HISPANIC/LATINO - PUERTO RICAN",
+            "HISPANIC/LATINO - GUATEMALAN",
+            "HISPANIC/LATINO - HONDURAN",
+            "HISPANIC/LATINO - COLUMBIAN",
+            "HISPANIC/LATINO - DOMINICAN",
+            "HISPANIC/LATINO - SALVADORAN",
+            "HISPANIC/LATINO - CENTRAL AMERICAN",
+            "HISPANIC/LATINO - CUBAN",
+            "HISPANIC/LATINO - MEXICAN",
+            "PORTUGUESE",
+            "SOUTH AMERICAN"]),
+            "race"] = "hisp/lat/SA"
+
+    traning_dataset = traning_dataset[~traning_dataset['race'].isin([
+                    "UNKNOWN",
+                    "OTHER",
+                    "UNABLE TO OBTAIN",
+                    "PATIENT DECLINED TO ANSWER",
+                    "MULTIPLE RACE/ETHNICITY"
+                ])]
+
     # Select only Frontal View
     if is_chexpert:
         traning_dataset = traning_dataset[

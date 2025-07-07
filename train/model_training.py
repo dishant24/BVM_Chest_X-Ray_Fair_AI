@@ -3,13 +3,12 @@ import copy
 import numpy as np
 import torch
 import wandb
-from sklearn.metrics import f1_score, roc_auc_score
+from sklearn.metrics import f1_score, roc_auc_score, accuracy_score
 from torch.optim.swa_utils import SWALR, AveragedModel
 
 from helper.log import log_roc_auc
 from typing import Callable, List, Optional
 from helper.early_stop import EarlyStopperByAUC, EarlyStopperByLoss
-
 
 def model_training(
     model : torch.nn.Module,
@@ -21,7 +20,6 @@ def model_training(
     num_epochs: int = 10,
     device : Optional[torch.device] =None ,
     multi_label: bool = True,
-    is_swa: bool = True,
 ) -> None:
     """
     Trains a model for either multi-label or multi-class classification.
@@ -45,15 +43,10 @@ def model_training(
         base_optimizer,T_max=num_epochs, eta_min=10e-6)
     early_stopper = EarlyStopperByAUC(patience=5)
 
-    # SWA will be initialized just before starting SWA training
-    if is_swa:
-        swa_model = None
-        swa_scheduler = None
-        swa_start_epoch = max(num_epochs - 5, 0)
-
     best_val_auc = 0
     best_model_weights = copy.deepcopy(model.state_dict())
-    early_stopped = False
+
+    torch.backends.cudnn.benchmark = True
 
     for epoch in range(num_epochs):
         ### === Training Phase === ###
@@ -62,13 +55,13 @@ def model_training(
         all_train_labels, all_train_preds = [], []
 
         for inputs, labels, _ in train_loader:
-            inputs, labels = inputs.to(device), labels.to(device)
-            base_optimizer.zero_grad()
+            inputs, labels = inputs.cuda(non_blocking=True), labels.cuda(non_blocking=True)
+            base_optimizer.zero_grad(set_to_none=True)
             outputs = model(inputs)
             loss = loss_function(outputs, labels)
             loss.backward()
             base_optimizer.step()
-            train_loss += loss.item()
+            train_loss += loss.detach()
 
             preds = (
                 torch.sigmoid(outputs).detach().cpu().numpy()
@@ -79,13 +72,7 @@ def model_training(
             all_train_preds.extend(preds)
 
         train_loss /= len(train_loader)
-        if epoch == swa_start_epoch and is_swa:
-            print("Initializing SWA Model...")
-            swa_model = AveragedModel(model)  # Initialize with latest trained weights
-            swa_model = swa_model.to(device)
-            swa_scheduler = SWALR(
-                base_optimizer, anneal_strategy="cos", anneal_epochs=3, swa_lr=0.0001
-            )
+        scheduler.step()
 
         ### === Validation Phase === ###
         model.eval()
@@ -96,7 +83,7 @@ def model_training(
                 inputs, labels = inputs.to(device), labels.to(device)
                 outputs = model(inputs)
                 loss = loss_function(outputs, labels)
-                val_loss += loss.item()
+                val_loss += loss.detach()
                 preds = (
                     torch.sigmoid(outputs).detach().cpu().numpy()
                     if multi_label
@@ -116,10 +103,10 @@ def model_training(
             )
             train_preds_binary = (np.array(all_train_preds) > 0.4).astype(int)
             val_preds_binary = (np.array(all_val_preds) > 0.4).astype(int)
-            train_acc = f1_score(
-                all_train_labels, train_preds_binary, average="weighted"
+            train_acc = accuracy_score(
+                all_train_labels, train_preds_binary
             )
-            val_acc = f1_score(all_val_labels, val_preds_binary, average="weighted")
+            val_acc = accuracy_score(all_val_labels, val_preds_binary)
         else:
             auc_roc_train = roc_auc_score(
                 all_train_labels, all_train_preds, average="weighted", multi_class="ovr"
@@ -129,27 +116,27 @@ def model_training(
             )
             train_pred_classes = np.argmax(all_train_preds, axis=1)
             val_pred_classes = np.argmax(all_val_preds, axis=1)
-            train_acc = f1_score(
-                all_train_labels, train_pred_classes, average="weighted"
+            train_acc = accuracy_score(
+                all_train_labels, train_pred_classes
             )
-            val_acc = f1_score(all_val_labels, val_pred_classes, average="weighted")
+            val_acc = accuracy_score(all_val_labels, val_pred_classes)
 
         wandb.log({"Training AUC": auc_roc_train, "Validation AUC": auc_roc_val})
         log_roc_auc(
-            all_train_labels,
-            all_train_preds,
-            actual_labels,
-            tasks,
-            log_name=f"{tasks} Training ROC",
+            y_true= all_train_labels,
+            y_scores= all_train_preds,
+            labels= actual_labels,
+            task= tasks,
+            log_name=f"Testing macro ROC-AUC for {tasks}",
             multilabel=multi_label,
             group_name=None,
         )
         log_roc_auc(
-            all_val_labels,
-            all_val_preds,
-            actual_labels,
-            tasks,
-            log_name=f"{tasks} Validation ROC",
+            y_true= all_val_labels,
+            y_scores= all_val_preds,
+            labels= actual_labels,
+            task= tasks,
+            log_name=f"Testing macro ROC-AUC for {tasks}",
             multilabel=multi_label,
             group_name=None,
         )
@@ -160,13 +147,6 @@ def model_training(
             f"Val AUC: {auc_roc_val:.4f}, Val Acc: {val_acc:.4f}, Val Loss: {val_loss:.4f}"
         )
 
-        # Apply SWA if within SWA start phase
-        if epoch > swa_start_epoch and is_swa:
-            swa_model.update_parameters(model)  # Ensure SWA model is actually updated
-            swa_scheduler.step()
-        else:
-            scheduler.step()
-
         if auc_roc_val > best_val_auc:
             best_val_auc = auc_roc_val
             best_model_weights = copy.deepcopy(model.state_dict())
@@ -174,21 +154,10 @@ def model_training(
         if early_stopper.early_stop(auc_roc_val):
             print("Early stopping triggered.")
             best_model_weights = copy.deepcopy(model.state_dict())
-            early_stopped = True
             break
 
     # Restore best model weights if early stopped
     model.load_state_dict(best_model_weights)
-
-    # Apply SWA only if training wasn't early stopped
-    if not early_stopped and is_swa:
-        print("Applying SWA...")
-        state_dict = swa_model.state_dict()
-        new_state_dict = {
-            k.replace("module.", ""): v
-            for k, v in state_dict.items()
-            if k != "n_averaged"
-        }  # Remove prefix & ignore "n_averaged"
-        model.load_state_dict(new_state_dict)
+    
     print("Training complete.")
 
