@@ -1,6 +1,6 @@
 from torch.utils.data import DataLoader, WeightedRandomSampler
 from torchvision import transforms
-
+import torchvision
 from datasets.data import MyDataset
 from typing import Optional, Union
 
@@ -13,29 +13,27 @@ def prepare_dataloaders(
     masked: bool=False,
     clahe: bool=False,
     reweight : bool=False,
+    transform : Union[None, torchvision.transforms, transforms.Compose] = None,
     base_dir: Optional[str] = None,
     shuffle: bool = False,
     is_multilabel: bool = True,
+    external_ood_test:bool = False,
 ) -> DataLoader:
-    transform = transforms.Compose(
-        [   
-            transforms.ToTensor(),
-            transforms.Resize(
-                (224, 224), interpolation=transforms.InterpolationMode.BICUBIC
-            ),
-            transforms.Lambda(lambda i: i.repeat(3, 1, 1) if i.shape[0] == 1 else i),
-            transforms.Normalize(mean=[0.5062] * 3, std=[0.2873] * 3),
-            transforms.RandomResizedCrop(
-                (200, 200),
-                scale=(0.9, 1.0),
-                ratio=(0.9, 1.1),
-                interpolation=transforms.InterpolationMode.BICUBIC,
-            ),
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomVerticalFlip(0.3),
-            transforms.RandomRotation(degrees=10),
-        ]
-    )
+
+    if transform is None:
+        transform = transforms.Compose(
+            [   
+                transforms.ToTensor(),
+                transforms.Resize(
+                    (224, 224), interpolation=transforms.InterpolationMode.BICUBIC
+                ),
+                transforms.Lambda(lambda i: i.repeat(3, 1, 1) if i.shape[0] == 1 else i),
+                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.RandomVerticalFlip(0.3),
+                transforms.RandomRotation(degrees=10),
+            ]
+        )
     dataset = MyDataset(
         image_paths= images_path,
         labels= labels,
@@ -45,6 +43,7 @@ def prepare_dataloaders(
         transform= transform,
         base_dir= base_dir,
         is_multilabel=is_multilabel,
+        external_ood_test =external_ood_test
     )
 
     if reweight:

@@ -11,6 +11,7 @@ import torchvision
 from data_preprocessing.process_dataset import (
     add_demographic_data,
     cleaning_datasets,
+    add_lung_mask_chexpert_dataset,
     get_group_by_data,
     merge_dataframe,
     sampling_datasets,
@@ -22,7 +23,6 @@ from models.build_model import DenseNet_Model, model_transfer_learning
 from train.model_training import model_training
 from helper.losses import LabelSmoothingLoss
 import argparse
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Training and Testing Arguments")
@@ -53,7 +53,6 @@ if __name__ == "__main__":
     is_groupby = args.is_groupby
     external_ood_test = args.external_ood_test
 
-
     base_dir = '/deep_learning/output/Sutariya/main/chexpert/dataset'
     name = f"model_baseline_{dataset}_{random_state}"
 
@@ -66,13 +65,14 @@ if __name__ == "__main__":
     if reweight:
         name = f"reweight_preprocessing_{name}"
 
-    
-    external_test_path = "/deep_learning/output/Sutariya/main/mimic/dataset/validation_clean_dataset.csv"
-    demographic_data_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/demographics_CXP.csv"
-    train_output_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/train_clean_dataset.csv"
-    valid_output_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/validation_clean_dataset.csv"
-    test_output_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/test_clean_dataset.csv"
-    all_dataset_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/train.csv"
+    if dataset == 'chexpert':
+        demographic_data_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/demographics_CXP.csv"
+        train_output_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/train_clean_dataset.csv"
+        valid_output_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/validation_clean_dataset.csv"
+        test_output_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/test_clean_dataset.csv"
+        all_dataset_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/train.csv"
+    else:
+        raise NotImplementedError
 
     if task == 'diagnostic':
         multi_label = True
@@ -112,11 +112,12 @@ if __name__ == "__main__":
         all_data_merge = merge_dataframe(all_data, demographic_data)
         all_data_clean = cleaning_datasets(all_data_merge)
         all_dataset = sampling_datasets(all_data_clean)
+        total_mask_path_merge = add_lung_mask_chexpert_dataset(all_dataset)
         if not (os.path.exists(train_output_path)) and not (
             os.path.exists(test_output_path)
         ):
             split_train_test_data(
-                all_dataset, 35, train_output_path, test_output_path, "race"
+                total_mask_path_merge, 35, train_output_path, test_output_path, "race"
             )
         else:
             print("Data is already sampled spit into train and test")
@@ -133,7 +134,6 @@ if __name__ == "__main__":
             f"Files {train_output_path} && {valid_output_path} already exists. Skipping save."
         )
 
-    
     if task == "diagnostic":
         labels = [
         "No Finding",
@@ -153,8 +153,11 @@ if __name__ == "__main__":
             if not os.path.exists(model_path):
                 train_df = pd.read_csv(train_output_path)
                 val_df = pd.read_csv(valid_output_path)
+                if masked:
+                    train_df = train_df[train_df['Dice RCA (Mean)'] > 0.7] 
+                    val_df = val_df[val_df['Dice RCA (Mean)'] > 0.7]
                 if reweight:
-                    top_races = train_df["race"].value_counts().index[:5]
+                    top_races = train_df["race"].value_counts().index[:4]
                     train_df = train_df[train_df["race"].isin(top_races)].copy()
                     val_df = val_df[val_df["race"].isin(top_races)].copy()
                 train_loader = prepare_dataloaders(
@@ -164,6 +167,7 @@ if __name__ == "__main__":
                     masked= masked,
                     clahe= clahe,
                     reweight= reweight,
+                    transform= None,
                     base_dir= base_dir,
                     shuffle=True,
                     is_multilabel=multi_label,
@@ -175,6 +179,7 @@ if __name__ == "__main__":
                     masked= masked,
                     clahe= clahe,
                     reweight= reweight,
+                    transform= None,
                     base_dir= base_dir,
                     shuffle=True,
                     is_multilabel=multi_label,
@@ -225,6 +230,7 @@ if __name__ == "__main__":
                     masked= masked,
                     clahe= clahe,
                     reweight= reweight,
+                    transform= None,
                     base_dir= base_dir,
                     shuffle=False,
                     is_multilabel=multi_label,
@@ -232,11 +238,12 @@ if __name__ == "__main__":
         
         model_testing(test_loader=test_loader,
                       model= model, 
-                      dataset= testing_df, 
+                      dataframe= testing_df, 
                       original_labels= labels, 
                       masked= masked, 
                       clahe= clahe, 
                       task= task, 
+                      reweight= reweight,
                       name= name, 
                       base_dir=base_dir, 
                       device= device, 
@@ -252,6 +259,7 @@ if __name__ == "__main__":
                     masked= masked,
                     clahe= clahe,
                     reweight= reweight,
+                    transform= None,
                     base_dir= base_dir,
                     shuffle=False,
                     is_multilabel=multi_label,
@@ -259,11 +267,12 @@ if __name__ == "__main__":
         
             model_testing(test_loader=test_loader,
                         model= model, 
-                        dataset= testing_df, 
+                        dataframe= testing_df, 
                         original_labels= labels, 
                         masked= masked, 
                         clahe= clahe, 
                         task= task, 
+                        reweight= reweight,
                         name= name, 
                         base_dir=base_dir, 
                         device= device, 
@@ -290,6 +299,7 @@ if __name__ == "__main__":
                     masked= masked,
                     clahe= clahe,
                     reweight= reweight,
+                    transform=  None,
                     base_dir= base_dir,
                     shuffle=True,
                     is_multilabel=multi_label,
@@ -301,6 +311,7 @@ if __name__ == "__main__":
                     masked= masked,
                     clahe= clahe,
                     reweight= reweight,
+                    transform= None,
                     base_dir= base_dir,
                     shuffle=True,
                     is_multilabel=multi_label,
@@ -356,6 +367,7 @@ if __name__ == "__main__":
                     masked= masked,
                     clahe= clahe,
                     reweight= reweight,
+                    transform= None,
                     base_dir= base_dir,
                     shuffle=False,
                     is_multilabel=multi_label,
@@ -363,11 +375,12 @@ if __name__ == "__main__":
         
         model_testing(test_loader=test_loader,
                       model= model, 
-                      dataset= testing_df, 
+                      dataframe= testing_df, 
                       original_labels= labels, 
                       masked= masked, 
                       clahe= clahe, 
                       task= task, 
+                      reweight= reweight,
                       name= name, 
                       base_dir=base_dir, 
                       device= device, 
@@ -386,6 +399,7 @@ if __name__ == "__main__":
                     masked= masked,
                     clahe= clahe,
                     reweight= reweight,
+                    transform = None,
                     base_dir= base_dir,
                     shuffle=False,
                     is_multilabel=multi_label,
@@ -393,11 +407,12 @@ if __name__ == "__main__":
         
         model_testing(test_loader=test_loader,
                       model= model, 
-                      dataset= testing_df, 
+                      dataframe= testing_df, 
                       original_labels= labels, 
                       masked= masked, 
                       clahe= clahe, 
                       task= task, 
+                      reweight= reweight,
                       name= name, 
                       base_dir=base_dir, 
                       device= device, 

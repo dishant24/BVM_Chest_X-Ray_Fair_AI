@@ -30,35 +30,40 @@ def decode_rle_numpy(rle_str: Optional[str], shape: Tuple[int, int]) -> np.ndarr
 class ApplyLungMask:
     def __init__(
         self,
-        margin_radius: int = 20,
         original_shape: Tuple[int, int] = (1024, 1024),
-        image_shape: Tuple[int, int] = (224, 224),
     ):
-        self.margin_radius = margin_radius
         self.original_shape = original_shape
-        self.image_shape = image_shape
-
-    def dilate_mask(self, mask: np.ndarray) -> np.ndarray:
-        selem = disk(self.margin_radius)
-        return binary_dilation(mask, structure=selem).astype(np.uint8)
-
-    def resize_mask(self, mask: np.ndarray) -> np.ndarray:
-        resized = cv2.resize(mask, (self.image_shape[1], self.image_shape[0]), interpolation=cv2.INTER_NEAREST)
-        return resized.astype(np.uint8)
 
     def compute_combined_mask(
         self, left_rle: Optional[str], right_rle: Optional[str], heart_rle: Optional[str]
     ) -> np.ndarray:
-        left = self.dilate_mask(decode_rle_numpy(left_rle, self.original_shape))
-        right = self.dilate_mask(decode_rle_numpy(right_rle, self.original_shape))
-        heart = self.dilate_mask(decode_rle_numpy(heart_rle, self.original_shape))
+        left = decode_rle_numpy(left_rle, self.original_shape)
+        right = decode_rle_numpy(right_rle, self.original_shape)
+        heart = decode_rle_numpy(heart_rle, self.original_shape)
         combined = np.clip(left + right + heart, 0, 1)
-        return self.resize_mask(combined)
+        return combined
 
-def compute_mask_entry(row: pd.Series, masker: ApplyLungMask) -> Tuple[str, np.ndarray]:
-    key = row["Path"]
-    mask = masker.compute_combined_mask(row["Left Lung"], row["Right Lung"], row["Heart"])
-    return key, mask.astype(np.uint8)
+
+def crop_image_to_mask(image: np.ndarray, mask: np.ndarray) -> np.ndarray:
+
+    image = np.array(image)
+    assert image.shape[:2] == mask.shape[:2], "Image and mask must have same height and width"
+
+    rows = np.any(mask, axis=1)
+    cols = np.any(mask, axis=0)
+
+    if not rows.any() or not cols.any():
+        print("Warning: Mask is empty. Returning original image.")
+        return image
+
+    rmin, rmax = np.where(rows)[0][[0, -1]]
+    cmin, cmax = np.where(cols)[0][[0, -1]]
+
+    cropped_np = image[rmin:rmax+1, cmin:cmax+1]
+    cropped_img = Image.fromarray(cropped_np)
+
+    return cropped_img
+
 
 class MyDataset(Dataset):
     def __init__(
@@ -68,9 +73,10 @@ class MyDataset(Dataset):
         dataframe: pd.DataFrame,
         masked: bool = False,
         clahe: bool = False,
-        transform: torchvision.transforms.Compose = None,
+        transform: Union[torchvision.transforms.Compose, None] = None,
         base_dir: Optional[str] = None,
         is_multilabel: bool = True,
+        external_ood_test:bool = False
     ):
         self.image_paths = list(image_paths)
         self.labels = labels
@@ -80,10 +86,15 @@ class MyDataset(Dataset):
         self.base_dir = base_dir
         self.transform = transform
         self.is_multilabel = is_multilabel
+        self.external_ood_test = external_ood_test
 
         self.create_clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        if self.masked:
-            self.base_dir = '/deep_learning/output/Sutariya/MIMIC-CXR-MASK/'
+        self.masker  = ApplyLungMask()
+        # if self.masked:
+        #     if self.external_ood_test:
+        #         self.base_dir = '/deep_learning/output/Sutariya/main/chexpert/dataset'
+        #     else:
+        #         self.base_dir = '/deep_learning/output/Sutariya/MIMIC-CXR-MASK/'
 
     def __len__(self) -> int:
         return len(self.image_paths)
@@ -92,8 +103,16 @@ class MyDataset(Dataset):
         file_path = self.image_paths[idx]
         full_path = os.path.join(self.base_dir, file_path)
 
-        image = Image.open(full_path).convert("L").resize((224, 224))
-        
+        image = Image.open(full_path)
+        row = self.df.iloc[idx]
+
+        if self.masked:
+            image = image.resize((1024, 1024))
+            mask = self.masker.compute_combined_mask(row["Left Lung"], row["Right Lung"], row["Heart"])
+            image = crop_image_to_mask(image, mask)
+
+        image = image.resize((224, 224))
+
         if self.clahe:
             img_np = np.array(image)
             img_np = self.create_clahe.apply(img_np)

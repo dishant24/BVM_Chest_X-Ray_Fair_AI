@@ -127,7 +127,7 @@ def model_training(
             y_scores= all_train_preds,
             labels= actual_labels,
             task= tasks,
-            log_name=f"Testing macro ROC-AUC for {tasks}",
+            log_name=f"Training macro ROC-AUC for {tasks}",
             multilabel=multi_label,
             group_name=None,
         )
@@ -136,7 +136,7 @@ def model_training(
             y_scores= all_val_preds,
             labels= actual_labels,
             task= tasks,
-            log_name=f"Testing macro ROC-AUC for {tasks}",
+            log_name=f"Validation macro ROC-AUC for {tasks}",
             multilabel=multi_label,
             group_name=None,
         )

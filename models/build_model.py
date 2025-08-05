@@ -25,15 +25,16 @@ class DenseNet_Model(nn.Module):
 
 
 # Help to build model for race prediction training
-def model_transfer_learning(path, model, device):
+def model_transfer_learning(path, model, device, gradcam):
 
-    state_dict = torch.load(path, map_location=device, weights_only=True)
-    state_dict.pop("clf.weight", None)
-    state_dict.pop("clf.bias", None)
-    
-    model.load_state_dict(state_dict, strict=False)
+     state_dict = torch.load(path, map_location=device, weights_only=True)
+     state_dict.pop("clf.weight", None)
+     state_dict.pop("clf.bias", None)
+     
+     model.load_state_dict(state_dict, strict=False)
 
-    for params in model.encoder.parameters():
-        params.requires_grad = False
+     if not gradcam:
+          for params in model.encoder.parameters():
+               params.requires_grad = False
 
-    return model
+     return model

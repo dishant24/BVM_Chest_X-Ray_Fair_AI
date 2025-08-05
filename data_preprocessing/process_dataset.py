@@ -106,15 +106,27 @@ def sampling_datasets(training_dataset: pd.DataFrame)-> pd.DataFrame:
     return training_dataset
 
 
-def add_lung_mask_dataset(dataset: pd.DataFrame)-> pd.DataFrame:
+def add_lung_mask_mimic_dataset(dataset: pd.DataFrame)-> pd.DataFrame:
     file_path = (
         "/deep_learning/output/Sutariya/main/mimic/dataset/MASK-MIMIC-CXR-JPG.csv"
     )
     mask_df = pd.read_csv(file_path)
-    mask_df = mask_df[["dicom_id", "Left Lung", "Right Lung", "Heart"]]
+    mask_df = mask_df[["dicom_id", 'Dice RCA (Mean)', 'Left Lung', 'Right Lung', 'Heart']]
     merge_mask_dataset = pd.merge(dataset, mask_df, how="inner", on="dicom_id")
     print(len(merge_mask_dataset))
     merge_mask_dataset.drop_duplicates(subset=["subject_id"], inplace=True)
+
+    return merge_mask_dataset
+
+def add_lung_mask_chexpert_dataset(dataset: pd.DataFrame)-> pd.DataFrame:
+    file_path = (
+        "/deep_learning/input/data/chexmask/chexmask-database-a-large-scale-dataset-of-anatomical-segmentation-masks-for-chest-x-ray-images-1.0.0/Preprocessed/CheXpert.csv"
+    )
+    mask_df = pd.read_csv(file_path)
+    mask_df = mask_df[["Path", 'Dice RCA (Mean)', 'Left Lung', 'Right Lung', 'Heart']]
+    mask_df['Path'] = 'CheXpert-v1.0-small/' + mask_df['Path']
+    merge_mask_dataset = pd.merge(dataset, mask_df, how="inner", on="Path")
+    print(len(merge_mask_dataset))
 
     return merge_mask_dataset
 

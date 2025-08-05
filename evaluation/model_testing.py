@@ -104,13 +104,14 @@ def model_eval_metrics_saving(
     base_dir: str =None,
     device: Optional[torch.device] =None,
     multi_label: bool =True,
-    is_groupby_testing:bool =False
+    is_groupby:bool =False,
+    external_ood_test:bool = False,
 ):
 
     torch.backends.cudnn.benchmark = True
     model.to(device)
     model.eval()
-    labels = [
+    label_name = [
         "No Finding",
         "Enlarged Cardiomediastinum",
         "Cardiomegaly",
@@ -126,7 +127,7 @@ def model_eval_metrics_saving(
 
     test_loader = prepare_dataloaders(
                             images_path= dataframe["Path"],
-                            labels= dataframe[labels].values,
+                            labels= dataframe[original_labels].values,
                             dataframe= dataframe,
                             masked= masked,
                             clahe= clahe,
@@ -134,14 +135,14 @@ def model_eval_metrics_saving(
                             base_dir= base_dir,
                             shuffle=False,
                             is_multilabel=multi_label,
+                            external_ood_test =external_ood_test
                         )
 
-    all_test_labels, all_test_preds = [], []
+    all_test_labels, all_test_preds, idx = [], [], []
 
     with torch.no_grad():
-        for inputs, labels, _ in test_loader:
+        for inputs, labels, p_id in test_loader:
             inputs, labels = inputs.cuda(non_blocking=True), labels.cuda(non_blocking=True)
-
             outputs = model(inputs)
             preds = (
                 torch.sigmoid(outputs).detach().cpu().numpy()
@@ -151,6 +152,7 @@ def model_eval_metrics_saving(
             
             all_test_labels.extend(labels.cpu().numpy())
             all_test_preds.extend(preds)
+            idx.extend(p_id)
 
     all_test_preds_np = np.array(all_test_preds)
     all_test_labels_np = np.array(all_test_labels)
@@ -168,8 +170,9 @@ def model_eval_metrics_saving(
         best_idx = np.argmax(f1)
         best_threshold = thresholds[best_idx]
         best_thresholds.append(best_threshold)
-    df_threshold = pd.DataFrame(best_thresholds, columns=["best_thresholds"])
-    df_threshold.to_csv(f"/deep_learning/output/Sutariya/main/{dataset}/evaluation_files/{name}_thresholds.csv", index=False)
+    if not clahe and not masked:
+        df_threshold = pd.DataFrame(best_thresholds, columns=["best_thresholds"])
+        df_threshold.to_csv(f"/deep_learning/output/Sutariya/main/{dataset}/evaluation_files/{name}_thresholds.csv", index=False)
 
     aurocs = []
     fprs = []
@@ -186,14 +189,24 @@ def model_eval_metrics_saving(
         fpr = fp/(fp+tn)
         fprs.append(fpr)
 
-    df_fpr = pd.DataFrame.from_dict(fprs, orient="index")
-    df_auc = pd.DataFrame.from_dict(aurocs, orient="index")
-    df_metric = pd.concat([df_fpr, df_auc])
+    df_fpr = pd.DataFrame(fprs, columns=['FPR'])
+    df_disease = pd.DataFrame(original_labels, columns=['Disease'])
+    df_auc = pd.DataFrame(aurocs, columns=['AUROC'])
+    df_metric = pd.concat([df_fpr, df_auc, df_disease], axis=1)
 
-    df_metric.to_csv(f'/deep_learning/output/Sutariya/main/{dataset}/evaluation_files/{name}_metrics.csv', index=False)
+    df_preds = pd.DataFrame(all_test_preds, columns=[f'{label}_pred' for label in label_name])
+    df_true = pd.DataFrame(all_test_labels, columns=[f'{label}_true' for label in label_name])
+    df_preds['id'] = idx
+    df_true['id'] = idx
+    dataframe = dataframe.copy()
+    dataframe['id'] = dataframe['Path']
+    dataframe = dataframe.merge(df_true, on='id', how='inner')
+    dataframe = dataframe.merge(df_preds, on='id', how='inner')
 
-    if is_groupby_testing:
-        
+    df_metric.to_csv(f'/deep_learning/output/Sutariya/main/{dataset}/evaluation_files/{name}_FPR_metrics.csv', index=False)
+    dataframe.to_csv(f'/deep_learning/output/Sutariya/main/{dataset}/evaluation_files/{name}_prob_metrics.csv', index=False)
+
+    if is_groupby:
         race_groupby_dataset = get_group_by_data(dataframe, "race")
         for group in race_groupby_dataset.keys():
             group_data = race_groupby_dataset[group]
@@ -202,14 +215,16 @@ def model_eval_metrics_saving(
 
             test_loader = prepare_dataloaders(
                     images_path= group_data["Path"],
-                    labels= group_data[labels].values,
+                    labels= group_data[original_labels].values,
                     dataframe= group_data,
                     masked= masked,
                     clahe= clahe,
                     reweight= reweight,
+                    transform = None,
                     base_dir= base_dir,
-                    shuffle=True,
+                    shuffle=False,
                     is_multilabel=multi_label,
+                    external_ood_test= external_ood_test
             )
 
             group_preds, group_labels = [], []
@@ -244,10 +259,15 @@ def model_eval_metrics_saving(
                 "AUROC": group_aurocs,
                 "FPR": group_fprs
             }, index=original_labels)
+
+            if group == 'hisp/lat/SA':
+                group = 'Hispanic'
             
             df_group_metrics.to_csv(
                 f'/deep_learning/output/Sutariya/main/{dataset}/evaluation_files/{name}_{group}_metrics.csv'
             )
+
+            
 
 
 def model_testing(
@@ -258,11 +278,13 @@ def model_testing(
     masked: bool,
     clahe: bool,
     task: str,
+    reweight: bool,
     name:str,
     base_dir:str,
     device: Optional[torch.device] =None,
     multi_label: bool =True,
-    is_groupby: bool = False
+    is_groupby: bool = False,
+    external_ood_test:bool = False,
 ):
     """
     Evaluates a multi-label classification model on a test dataframe.
@@ -314,7 +336,23 @@ def model_testing(
         test_pred_classes = np.argmax(all_test_preds, axis=1)
         test_acc = accuracy_score(all_test_labels, test_pred_classes)
 
-    log_roc_auc(
+    
+    if external_ood_test:
+        wandb.log({"External Testing macro ROC_AUC_Score": auc_roc_test})
+        print(f"External Test ROC-AUC Score: {auc_roc_test:.4f}, Testing Accuracy Score: {test_acc:.4f}")
+        log_roc_auc(
+        y_true= all_test_labels,
+        y_scores= all_test_preds,
+        labels= original_labels,
+        task= task,
+        log_name=f"External Testing macro ROC-AUC for {task}",
+        multilabel=multi_label,
+        group_name=None,
+    )
+    else:
+        wandb.log({"Testing macro ROC_AUC_Score": auc_roc_test})
+        print(f"Test ROC-AUC Score: {auc_roc_test:.4f}, Testing Accuracy Score: {test_acc:.4f}")
+        log_roc_auc(
         y_true= all_test_labels,
         y_scores= all_test_preds,
         labels= original_labels,
@@ -322,12 +360,6 @@ def model_testing(
         log_name=f"Testing macro ROC-AUC for {task}",
         multilabel=multi_label,
         group_name=None,
-    )
-    wandb.log({"Testing macro ROC_AUC_Score": auc_roc_test})
-    
-    # log_confusion_matrix(all_test_labels, all_test_preds, log_name="Testing Confusion Matrix")
-    print(
-        f"Test ROC-AUC Score: {auc_roc_test:.4f}, Testing Accuracy Score: {test_acc:.4f}"
     )
     if is_groupby:
         if task == 'diagnostic':
@@ -338,15 +370,17 @@ def model_testing(
                 assert not group_data.duplicated("Path").any(), f"Duplicate image paths in group {group}"
 
                 test_loader = prepare_dataloaders(
-                    group_data["Path"],
-                    group_data[original_labels].values,
-                    group_data,
-                    masked,
-                    clahe,
-                    reweight=False,
-                    base_dir=base_dir,
-                    shuffle=False,  
-                    is_multilabel=multi_label
+                    images_path= group_data["Path"],
+                    labels= group_data[original_labels].values,
+                    dataframe= group_data,
+                    masked= masked,
+                    clahe= clahe,
+                    reweight= reweight,
+                    transform= None,
+                    base_dir= base_dir,
+                    shuffle=False,
+                    is_multilabel=multi_label,
+                    external_ood_test = external_ood_test,
                 )
 
                 group_preds, group_labels = [], []
@@ -370,18 +404,29 @@ def model_testing(
                     )
                     test_pred_classes = np.argmax(group_preds, axis=1)
                     test_acc = accuracy_score(group_labels, test_pred_classes)
-                log_roc_auc(
+                if external_ood_test:
+                    wandb.log({f"{group} External Testing macro ROC_AUC_Score": auc_roc_test})
+                    print(f"{group} External Test ROC-AUC Score: {auc_roc_test:.4f}, Testing Accuracy Score: {test_acc:.4f}")
+                    log_roc_auc(
                     y_true= group_labels,
                     y_scores= group_preds,
                     labels= original_labels,
                     task= task,
-                    log_name=f"Testing macro ROC-AUC for {task}",
+                    log_name=f"External Testing {task} macro ROC-AUC for {group}",
                     multilabel=multi_label,
                     group_name=group,
                 )
-                wandb.log({"{group} Testing ROC_AUC_Score": auc_roc_test}) 
-                print(
-                    f"{group} Test ROC-AUC Score: {auc_roc_test:.4f}, Testing Accuracy Score: {test_acc:.4f}"
+                else:
+                    wandb.log({f"{group} Testing macro ROC_AUC_Score": auc_roc_test})
+                    print(f"{group} Test ROC-AUC Score: {auc_roc_test:.4f}, Testing Accuracy Score: {test_acc:.4f}")
+                    log_roc_auc(
+                    y_true= group_labels,
+                    y_scores= group_preds,
+                    labels= original_labels,
+                    task= task,
+                    log_name=f"External Testing {task} macro ROC-AUC for {group}",
+                    multilabel=multi_label,
+                    group_name=group,
                 )
         else:
             raise AssertionError("Couldn't find race groupby on race prediction")
