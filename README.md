@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Improving Generalization and Robustness of ChestX-ray AI Models: Preprocessing method to mitigate Racial/Ethnic Bias
 
 This project focuses on improving the **fairness** and **robustness** of AI models used in **medical chest X-ray (CXR) diagnosis**. The primary objective is mitigate **racial demographic biases** that can arise in deep learning models trained on medical imaging CXR datasets.
@@ -43,3 +44,7 @@ This project uses publicly available chest X-ray datasets such as:
 These datasets include metadata for demographic attributes.
 
 ---
+=======
+# BVM_Chest_X-Ray_Fair_AI
+This project focuses on improving the fairness and robustness of AI models used in medical chest X-ray (CXR) diagnosis. The primary objective is mitigate racial demographic biases that can arise in deep learning models trained on medical imaging CXR datasets.
+>>>>>>> ff21d3f9cdf57b3b023492718ea065cafc25db92
