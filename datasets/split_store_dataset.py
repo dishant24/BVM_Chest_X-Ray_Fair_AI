@@ -1,16 +1,6 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
 import os
 from typing import Union
-
-def split_and_save_datasets(
-    dataset: pd.DataFrame, train_path : Union[list, str, os.path] ="train.csv", val_path: Union[list, str, os.path]="val.csv", val_size: int=0.1, random_seed: int=42
-)-> None:
-    train_data, val_data = train_test_split(
-        dataset, test_size=val_size, random_state=random_seed
-    )
-    train_data.to_csv(train_path, index=False)
-    val_data.to_csv(val_path, index=False)
 
 
 def sample_test(df_group: pd.DataFrame, disease: Union[list, str], n_samples: int=0)-> pd.DataFrame:

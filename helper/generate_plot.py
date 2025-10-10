@@ -170,7 +170,7 @@ def get_bootstrap_auc(test_loader, weights, device, labels, test_df, multi_label
     
     return auc_df
 
-def generate_plot(weights, lung_weights, clahe_weights, device, testing_df, multi_label, base_dir, external_ood_test):
+def generate_plot(weights, lung_weights, crop_lung_weights, clahe_weights, device, testing_df, multi_label, base_dir, external_ood_test):
 
     labels = [
         "No Finding",
@@ -191,7 +191,7 @@ def generate_plot(weights, lung_weights, clahe_weights, device, testing_df, mult
                     dataframe= testing_df,
                     masked= False,
                     clahe= False,
-                    reweight= False,
+                    crop_masked= False,
                     transform = None,
                     base_dir= base_dir,
                     shuffle=False,
@@ -205,20 +205,35 @@ def generate_plot(weights, lung_weights, clahe_weights, device, testing_df, mult
                     dataframe= testing_df,
                     masked= True,
                     clahe= False,
-                    reweight= False,
+                    crop_masked= False,
                     transform= None,
                     base_dir= base_dir,
                     shuffle=False,
                     is_multilabel=multi_label,
                     external_ood_test=external_ood_test
            )
+
+    diag_crop_lung_loader = prepare_dataloaders(
+                    images_path= testing_df["Path"],
+                    labels= testing_df[labels].values,
+                    dataframe= testing_df,
+                    masked= False,
+                    clahe= False,
+                    crop_masked= True,
+                    transform= None,
+                    base_dir= base_dir,
+                    shuffle=False,
+                    is_multilabel=multi_label,
+                    external_ood_test=external_ood_test
+           )
+
     diag_clahe_loader = prepare_dataloaders(
                     images_path= testing_df["Path"],
                     labels= testing_df[labels].values,
                     dataframe= testing_df,
                     masked= False,
                     clahe= True,
-                    reweight= False,
+                    crop_masked= False,
                     transform= None,
                     base_dir= base_dir,
                     shuffle=False,
@@ -228,6 +243,7 @@ def generate_plot(weights, lung_weights, clahe_weights, device, testing_df, mult
         
     auc_df = get_bootstrap_auc(diag_loader, weights, device, labels, test_df, multi_label)
     auc_lung_df = get_bootstrap_auc(diag_lung_loader, lung_weights, device, labels, test_df, multi_label)
+    auc_crop_lung_df = get_bootstrap_auc(diag_crop_lung_loader, crop_lung_weights, device, labels, test_df, multi_label)
     auc_clahe_df = get_bootstrap_auc(diag_clahe_loader, clahe_weights, device, labels, test_df, multi_label)
 
     diseases = auc_df['Disease'].unique()
@@ -260,11 +276,12 @@ def generate_plot(weights, lung_weights, clahe_weights, device, testing_df, mult
 
 
     # Create plots
-    fig, axs = plt.subplots(3, 1, figsize=(14, 16), sharex=True, sharey=True)
+    fig, axs = plt.subplots(4, 1, figsize=(18, 16), sharex=True, sharey=True)
 
     plot_aligned(axs[0], auc_df, "Baseline Model - AUROC")
     plot_aligned(axs[1], auc_lung_df, "Baseline with Lung Masking - AUROC")
-    plot_aligned(axs[2], auc_clahe_df, "Baseline with CLAHE - AUROC")
+    plot_aligned(axs[2], auc_crop_lung_df, "Baseline with Crop Lung Masking - AUROC")
+    plot_aligned(axs[3], auc_clahe_df, "Baseline with CLAHE - AUROC")
 
     axs[0].legend(title='Race', bbox_to_anchor=(1.02, 1), loc='upper left')
     plt.tight_layout()
@@ -302,19 +319,10 @@ if __name__ == "__main__":
         name="Evaluation results",
     )
 
-
     if external_ood_test:
+        external_total_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/chexpert_total_dataset.csv"
         base_dir = '/deep_learning/output/Sutariya/main/chexpert/dataset'
-        external_train_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/train_clean_dataset.csv"
-        external_val_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/validation_clean_dataset.csv"
-        external_test_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/test_clean_dataset.csv"
-        ex_test_df = pd.read_csv(external_test_path)
-        ex_train_df = pd.read_csv(external_train_path)
-        ex_val_df = pd.read_csv(external_val_path)
-
-        test_df = pd.concat([ex_val_df, ex_train_df, ex_test_df])
-        top_races = test_df["race"].value_counts().index[:4]
-        test_df = test_df[test_df["race"].isin(top_races)].copy()
+        test_df = pd.read_csv(external_total_path)
     else:
         base_dir = "MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/"
         test_output_path = "/deep_learning/output/Sutariya/main/mimic/dataset/test_clean_dataset.csv"
@@ -322,13 +330,16 @@ if __name__ == "__main__":
 
     baseline_model_path = f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{task}/{name}.pth"
 
-    lung_model_path = f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{task}/mask_preprocessing_{name}.pth"                    
+    lung_model_path = f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{task}/mask_preprocessing_{name}.pth"
+
+    crop_lung_model_path = f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{task}/crop_mask_preprocessing_{name}.pth"                    
 
     clahe_model_path = f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{task}/clahe_preprocessing_{name}.pth"
 
     generate_plot(
                 weights=baseline_model_path,
                 lung_weights=lung_model_path,
+                crop_lung_weights=crop_lung_model_path,
                 clahe_weights=clahe_model_path,
                 device=device,
                 testing_df=test_df,

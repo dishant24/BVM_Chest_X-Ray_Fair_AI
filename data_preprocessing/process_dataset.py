@@ -120,7 +120,7 @@ def add_lung_mask_mimic_dataset(dataset: pd.DataFrame)-> pd.DataFrame:
 
 def add_lung_mask_chexpert_dataset(dataset: pd.DataFrame)-> pd.DataFrame:
     file_path = (
-        "/deep_learning/input/data/chexmask/chexmask-database-a-large-scale-dataset-of-anatomical-segmentation-masks-for-chest-x-ray-images-1.0.0/Preprocessed/CheXpert.csv"
+        "/deep_learning/output/Sutariya/main/chexpert/dataset/CheXpert.csv"
     )
     mask_df = pd.read_csv(file_path)
     mask_df = mask_df[["Path", 'Dice RCA (Mean)', 'Left Lung', 'Right Lung', 'Heart']]
@@ -201,39 +201,47 @@ def cleaning_datasets(traning_dataset: pd.DataFrame, is_chexpert: bool =True)-> 
         int
     )  # In The limits of fair medical imaging paper they treat uncertain label as negative and fill NA with 0.
 
-    traning_dataset.loc[traning_dataset["race"].str.startswith("WHITE"), "race"] = "WHITE"
-    traning_dataset.loc[traning_dataset["race"].str.startswith("BLACK"), "race"] = "BLACK"
-    traning_dataset.loc[traning_dataset["race"].str.startswith("ASIAN"), "race"] = "ASIAN"
-
-    traning_dataset.loc[traning_dataset.race.isin([
-            "HISPANIC OR LATINO",
-            "HISPANIC/LATINO - PUERTO RICAN",
-            "HISPANIC/LATINO - GUATEMALAN",
-            "HISPANIC/LATINO - HONDURAN",
-            "HISPANIC/LATINO - COLUMBIAN",
-            "HISPANIC/LATINO - DOMINICAN",
-            "HISPANIC/LATINO - SALVADORAN",
-            "HISPANIC/LATINO - CENTRAL AMERICAN",
-            "HISPANIC/LATINO - CUBAN",
-            "HISPANIC/LATINO - MEXICAN",
-            "PORTUGUESE",
-            "SOUTH AMERICAN"]),
-            "race"] = "hisp/lat/SA"
-
-    traning_dataset = traning_dataset[~traning_dataset['race'].isin([
-                    "UNKNOWN",
-                    "OTHER",
-                    "UNABLE TO OBTAIN",
-                    "PATIENT DECLINED TO ANSWER",
-                    "MULTIPLE RACE/ETHNICITY"
-                ])]
-
     # Select only Frontal View
     if is_chexpert:
         traning_dataset = traning_dataset[
             traning_dataset["Frontal/Lateral"] == "Frontal"
         ]
+        hispanic_data_df = traning_dataset[
+                            (traning_dataset['ethnicity'] == 'Hispanic/Latino')
+                            & ~(traning_dataset['race'].isin(['White', 'Black', 'Asian']))
+                        ]
+        hispanic_data_df['race'] = 'Hispanic'
+        asian_white_black_data_df = traning_dataset[(traning_dataset['ethnicity'] == 'Non-Hispanic/Non-Latino') &
+                                    (traning_dataset['race'].isin(['White', 'Black', 'Asian']))]
+        traning_dataset = pd.concat([hispanic_data_df, asian_white_black_data_df], axis=0)
     else:
+        traning_dataset.loc[traning_dataset["race"].str.startswith("WHITE"), "race"] = "White"
+        traning_dataset.loc[traning_dataset["race"].str.startswith("BLACK"), "race"] = "Black"
+        traning_dataset.loc[traning_dataset["race"].str.startswith("ASIAN"), "race"] = "Asian"
+
+        traning_dataset.loc[traning_dataset.race.isin([
+                "HISPANIC OR LATINO",
+                "HISPANIC/LATINO - PUERTO RICAN",
+                "HISPANIC/LATINO - GUATEMALAN",
+                "HISPANIC/LATINO - HONDURAN",
+                "HISPANIC/LATINO - COLUMBIAN",
+                "HISPANIC/LATINO - DOMINICAN",
+                "HISPANIC/LATINO - SALVADORAN",
+                "HISPANIC/LATINO - CENTRAL AMERICAN",
+                "HISPANIC/LATINO - CUBAN",
+                "HISPANIC/LATINO - MEXICAN",
+                "PORTUGUESE",
+                "SOUTH AMERICAN"]),
+                "race"] = "Hispanic"
+
+        traning_dataset = traning_dataset[~traning_dataset['race'].isin([
+                        "UNKNOWN",
+                        "OTHER",
+                        "UNABLE TO OBTAIN",
+                        "PATIENT DECLINED TO ANSWER",
+                        "MULTIPLE RACE/ETHNICITY"
+                    ])]
+
         traning_dataset = traning_dataset[
             traning_dataset.ViewPosition.isin(["AP", "PA"])
         ]

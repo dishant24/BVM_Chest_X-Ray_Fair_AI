@@ -42,10 +42,68 @@ def overlay_heatmap_on_image(orig_img, activation_map, alpha=0.4):
      
      return blended
 
+def generate_cam_for_image(dataframe, models, model_names, class_idx, device="cuda"):
+    # Transform
+    create_clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    transform = Compose([
+        Resize((224, 224)),
+        ToTensor(),
+        Lambda(lambda i: i.repeat(3, 1, 1) if i.shape[0] == 1 else i),
+        Normalize([0.485, 0.456, 0.406],
+                  [0.229, 0.224, 0.225])
+    ])
+    img_path = "MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/" + dataframe['Path'][10]
+    # Load original image for overlay
+    orig_img = Image.open(img_path).convert("L")
+    orig_img_resized = orig_img.resize((224, 224))
+
+    cam_results = []
+    for model, name in zip(models, model_names):
+          model.eval().to(device)
+          cam_extractor = GradCAMpp(model)
+          if name == "CLAHE":
+               img_np = np.array(orig_img_resized)
+               img_tensor = create_clahe.apply(img_np)
+               img_tensor = transform(img_tensor).unsqueeze(0).to(device)
+               image =  Image.fromarray(img_np)
+          if name == "Lung Masked":
+               lung_img_path = '/deep_learning/output/Sutariya/MIMIC-CXR-MASK/'+ dataframe['Path'][10]
+               image = Image.open(lung_img_path).convert("L")
+          
+          img_tensor = transform(image).unsqueeze(0).to(device)
+          with torch.set_grad_enabled(True):
+               output = model(img_tensor)
+
+          # sigmoid/softmax depends on task
+          if output.shape[1] > 1:
+               probs = torch.softmax(output, dim=1)[0]
+          else:
+               probs = torch.sigmoid(output)[0]
+
+          # CAM
+          activation_map = cam_extractor(class_idx=class_idx, scores=output, retain_graph=False)[0].cpu().squeeze().numpy()
+          blended = overlay_heatmap_on_image(orig_img_resized, activation_map)
+
+          cam_results.append((name, blended, float(probs[class_idx].item())))
+
+    return cam_results
+
+# ---------- Visualization ----------
+def plot_cam_results(cam_results, class_name):
+    cols = len(cam_results)
+    fig, axes = plt.subplots(1, cols, figsize=(6 * cols, 5))
+    
+    for idx, (name, blended, prob) in enumerate(cam_results):
+        axes[idx].imshow(blended)
+        axes[idx].set_title(f"{name}\n{class_name} (p={prob:.2f})")
+        axes[idx].axis("off")
+    
+    plt.tight_layout()
+    wandb.log({f"Grad-CAM {class_name}": wandb.Image(fig)})
+    plt.show()
+
 def generate_cam_images(dataframe, weight_path, class_names, task, clahe, masked):
      device = 'cuda' if torch.cuda.is_available() else 'cpu'
-     create_clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-
      print(weight_path)
      if task == 'diagnostic':
           model = DenseNet_Model(weights=None, out_feature=11)
@@ -71,7 +129,7 @@ def generate_cam_images(dataframe, weight_path, class_names, task, clahe, masked
                     dataframe= dataframe,
                     masked= masked,
                     clahe= clahe,
-                    reweight= False,
+                    crop_masked= False,
                     transform = transform,
                     base_dir= "MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/",
                     shuffle=True,
@@ -93,7 +151,7 @@ def generate_cam_images(dataframe, weight_path, class_names, task, clahe, masked
                else:
                     probs = torch.softmax(output, dim=1)[0]
                for cls in range(num_classes):
-                    activation_map = cam_extractor(class_idx=cls, scores=output)[0].cpu().squeeze().numpy()
+                    activation_map = cam_extractor(class_idx=cls, scores=output, retain_graph=True)[0].cpu().squeeze().numpy()
                     heatmaps[cls].append(activation_map)
 
      # Average maps and overlays per class
@@ -171,6 +229,7 @@ if __name__ == "__main__":
      parser.add_argument('--masked', action='store_true')
      parser.add_argument('--clahe', action='store_true')
      args = parser.parse_args()
+     device = 'cuda' if torch.cuda.is_available() else 'cpu'
      print(vars(args))
      torch.cuda.empty_cache()
      random_state = args.random_state
@@ -181,21 +240,24 @@ if __name__ == "__main__":
      name = f"model_baseline_{dataset}_{random_state}"
      wandb.init(
         project=f"{dataset}_preprocessing_{task}",
-        name="Avarage_grade_cam")
+        name="grade_cam")
 
      label_encoder = LabelEncoder()
      
      create_clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+     baseline_path = f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{task}/{name}.pth"
+     clahe_path = f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{task}/clahe_preprocessing_{name}.pth"
+     mask_path = f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{task}/mask_preprocessing_{name}.pth"
 
-     if masked:
-          weight_path = f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{task}/mask_preprocessing_{name}.pth"
-          base_dir = "/deep_learning/output/Sutariya/MIMIC-CXR-MASK/"
-     elif clahe:
-          base_dir = "MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/"
-          weight_path = f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{task}/clahe_preprocessing_{name}.pth"
-     else:
-          base_dir = "MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/"
-          weight_path = f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{task}/{name}.pth"
+     # if masked:
+     #      weight_path = f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{task}/mask_preprocessing_{name}.pth"
+     #      base_dir = "/deep_learning/output/Sutariya/MIMIC-CXR-MASK/"
+     # elif clahe:
+     #      base_dir = "MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/"
+     #      weight_path = f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{task}/clahe_preprocessing_{name}.pth"
+     # else:
+     #      base_dir = "MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/"
+     #      weight_path = f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{task}/{name}.pth"
           
      test_output_path = "/deep_learning/output/Sutariya/main/mimic/dataset/test_clean_dataset.csv"
      test_df = pd.read_csv(test_output_path)
@@ -217,6 +279,28 @@ if __name__ == "__main__":
           "Pneumothorax",
           "Pleural Effusion"]     
 
-     generate_cam_images(test_df, weight_path, labels, task, clahe, masked)
+     # Assume you have 3 models: baseline, CLAHE, lung-masked
+     baseline_model = DenseNet_Model(weights=None, out_feature=len(labels))
+     clahe_model = DenseNet_Model(weights=None, out_feature=len(labels))
+     mask_model = DenseNet_Model(weights=None, out_feature=len(labels))
 
+     # Load their weights
+     baseline_model.load_state_dict(torch.load(baseline_path, map_location=device))
+     clahe_model.load_state_dict(torch.load(clahe_path, map_location=device))
+     mask_model.load_state_dict(torch.load(mask_path, map_location=device))
+
+     models = [baseline_model, clahe_model, mask_model]
+     model_names = ["Baseline", "CLAHE", "Lung Masked"]
+
+     class_idx = 2 
+     class_name = labels[class_idx]
+
+     # Generate CAMs
+     results = generate_cam_for_image(test_df, models, model_names, class_idx, device="cuda")
+
+     # Plot
+     plot_cam_results(results, class_name)
+
+
+     # generate_cam_images(test_df, weight_path, labels, task, clahe, masked)
 

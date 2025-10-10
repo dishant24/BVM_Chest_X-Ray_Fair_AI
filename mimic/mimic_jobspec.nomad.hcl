@@ -34,9 +34,9 @@ job "mimic-diagnostic" {
       config {
         image = "registry.fme.lan/dockerhub/pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime"
         command = "bash"
-        args = ["-c", "pip install pandas numpy matplotlib torchvision torch tqdm scikit-image wandb torchcontrib scikit-learn seaborn scikit-learn --root-user-action=ignore && export WANDB_API_KEY=c97efa068ce628aa2d4ad9bbc8b2b2dbaa6c6387 && wandb login && python deep_learning/output/Sutariya/main/mimic/mimic_cxr_model.py"]
+        args = ["-c", "pip install pandas numpy matplotlib numba opencv-python-headless torchvision torch tqdm scikit-image wandb torchcontrib scikit-learn seaborn scikit-learn --root-user-action=ignore && export WANDB_API_KEY=c97efa068ce628aa2d4ad9bbc8b2b2dbaa6c6387 && wandb login && python deep_learning/output/Sutariya/main/mimic/mimic_cxr_model.py  --task diagnostic --random_state 100 --epoch 30 --dataset mimic --is_groupby"]
         work_dir = "/"
-        shm_size = 17179869184
+        shm_size = 17179869184*2
       }
 
       # Mount the volumes correctly
@@ -52,8 +52,8 @@ job "mimic-diagnostic" {
       }
 
       resources {
-        cpu = 8000
-        memory = 30000
+        cpu = 12000
+        memory = 80000
         device "nvidia/gpu" {
           count = 1
         }
@@ -70,4 +70,5 @@ job "mimic-diagnostic" {
       unlimited = false
     }
   }
+  priority=100
 }

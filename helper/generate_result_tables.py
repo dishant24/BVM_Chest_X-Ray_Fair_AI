@@ -70,7 +70,7 @@ def generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights,
                     dataframe= test_df,
                     masked= False,
                     clahe= False,
-                    reweight= False,
+                    crop_masked= False,
                     transform= None,
                     base_dir= base_dir,
                     shuffle=False,
@@ -84,7 +84,7 @@ def generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights,
                     dataframe= test_df,
                     masked= True,
                     clahe= False,
-                    reweight= False,
+                    crop_masked= False,
                     transform= None,
                     base_dir= base_dir,
                     shuffle=False,
@@ -97,7 +97,7 @@ def generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights,
                     dataframe= test_df,
                     masked= False,
                     clahe= True,
-                    reweight= False,
+                    crop_masked= False,
                     transform= None,
                     base_dir= base_dir,
                     shuffle=False,
@@ -111,7 +111,7 @@ def generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights,
                     dataframe= test_df,
                     masked= False,
                     clahe= False,
-                    reweight= False,
+                    crop_masked= False,
                     transform= None,
                     base_dir= base_dir,
                     shuffle=False,
@@ -124,7 +124,7 @@ def generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights,
                     dataframe= test_df,
                     masked= True,
                     clahe= False,
-                    reweight= False,
+                    crop_masked= False,
                     transform= None,
                     base_dir= base_dir,
                     shuffle=False,
@@ -137,7 +137,7 @@ def generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights,
                     dataframe= test_df,
                     masked= False,
                     clahe= True,
-                    reweight= False,
+                    crop_masked= False,
                     transform= None,
                     base_dir= base_dir,
                     shuffle=False,
@@ -163,7 +163,24 @@ def generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights,
                    Macro_AUROC='mean',
                    Max_Diff_AUROC=lambda x: x.max() - x.min()
                ).reset_index()
+
+
+    disparities = (disease_auroc_df.groupby(['Preprocessing', 'Disease', 'Race'])['AUROC']
+          .agg(lambda x: x.max() - x.min())
+          .reset_index(name='Gap')
+    )
+
+    avg_disparities = disparities.groupby(['Preprocessing', 'Race'])['Gap'].mean().reset_index()
+
     
+    avg_diff_str = avg_disparities.to_latex(index=False, 
+                                  label="tab:avg_auroc_diff_diagnostic_summary")
+
+    diff_str = disparities.to_latex(index=False, 
+                                  label="tab:auroc_diff_diagnostic_summary")
+
+    print(diff_str)
+
 
     disease_auroc_df = disease_auroc_df.pivot_table(index=['Race', 'Disease'], columns=['Preprocessing'], values='AUROC')
     disease_auroc_df = disease_auroc_df.reset_index()
@@ -177,27 +194,25 @@ def generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights,
     diff_latex_str = summary_df.to_latex(index=False, 
                                   label="tab:auroc_diagnostic_summary")
     
-    disease_latex_str = disease_auroc_df.to_latex(index=False, 
-                                  label="tab:auroc_diff_diagnostic_summary")
     
     race_latex_str = race_auroc_df.to_latex(index=False, 
                                   caption="Summary of AUROC per Disease and Race groupBy metrics across preprocessing methods", 
                                   label="tab:auroc_race_summary")
     
     if external_ood_test:
-        output_diff_path = "/deep_learning/output/Sutariya/main/mimic/daignostic_diff_auc_result_tabel_external.tex"
+        output_diff_path = "/deep_learning/output/Sutariya/main/mimic/avg_diff_auc_result_tabel_external.tex"
         output_path = "/deep_learning/output/Sutariya/main/mimic/daignostic_result_tabel_external.tex"
         race_output_path = "/deep_learning/output/Sutariya/main/mimic/race_encoding_table_external.tex"
     else:
-        output_diff_path = "/deep_learning/output/Sutariya/main/mimic/daignostic_diff_auc_result_tabel.tex"
+        output_diff_path = "/deep_learning/output/Sutariya/main/mimic/avg_diff_auc_result_tabel.tex"
         output_path = "/deep_learning/output/Sutariya/main/mimic/daignostic_result_tabel.tex"
         race_output_path = "/deep_learning/output/Sutariya/main/mimic/race_encoding_table.tex"
 
 
     with open(output_path, "w") as f:
-         f.write(disease_latex_str)
-    with open(output_diff_path, "w") as f:
          f.write(diff_latex_str)
+    with open(output_diff_path, "w") as f:
+         f.write(avg_diff_str)
     with open(race_output_path, "w") as f:
          f.write(race_latex_str)
 

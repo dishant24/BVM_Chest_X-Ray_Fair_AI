@@ -54,15 +54,17 @@ def model_training(
         train_loss = 0.0
         all_train_labels, all_train_preds = [], []
 
+
         for inputs, labels, _ in train_loader:
             inputs, labels = inputs.cuda(non_blocking=True), labels.cuda(non_blocking=True)
+            if not multi_label:
+                labels = torch.argmax(labels, dim=1).long()
             base_optimizer.zero_grad(set_to_none=True)
             outputs = model(inputs)
             loss = loss_function(outputs, labels)
             loss.backward()
             base_optimizer.step()
             train_loss += loss.detach()
-
             preds = (
                 torch.sigmoid(outputs).detach().cpu().numpy()
                 if multi_label
@@ -81,6 +83,8 @@ def model_training(
         with torch.no_grad():
             for inputs, labels, _ in val_loader:
                 inputs, labels = inputs.to(device), labels.to(device)
+                if not multi_label:
+                    labels = torch.argmax(labels, dim=1).long()
                 outputs = model(inputs)
                 loss = loss_function(outputs, labels)
                 val_loss += loss.detach()
@@ -92,6 +96,10 @@ def model_training(
                 all_val_labels.extend(labels.cpu().numpy())
                 all_val_preds.extend(preds)
         val_loss /= len(val_loader)
+        all_val_labels = np.array(all_val_labels)
+        all_val_preds = np.array(all_val_preds)
+        all_train_labels = np.array(all_train_labels)
+        all_train_preds = np.array(all_train_preds)
 
         # Compute AUC-ROC and Accuracy
         if multi_label:
@@ -124,7 +132,7 @@ def model_training(
         wandb.log({"Training AUC": auc_roc_train, "Validation AUC": auc_roc_val})
         log_roc_auc(
             y_true= all_train_labels,
-            y_scores= all_train_preds,
+            y_scores= all_train_preds, 
             labels= actual_labels,
             task= tasks,
             log_name=f"Training macro ROC-AUC for {tasks}",
@@ -139,7 +147,7 @@ def model_training(
             log_name=f"Validation macro ROC-AUC for {tasks}",
             multilabel=multi_label,
             group_name=None,
-        )
+        )   
 
         print(
             f"Epoch [{epoch + 1}/{num_epochs}], "

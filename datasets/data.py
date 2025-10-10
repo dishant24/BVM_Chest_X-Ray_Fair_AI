@@ -59,10 +59,21 @@ def crop_image_to_mask(image: np.ndarray, mask: np.ndarray) -> np.ndarray:
     rmin, rmax = np.where(rows)[0][[0, -1]]
     cmin, cmax = np.where(cols)[0][[0, -1]]
 
-    cropped_np = image[rmin:rmax+1, cmin:cmax+1]
+    h, w = mask.shape
+    cmin_pad = max(cmin - 50, 0)
+    cmax_pad = min(cmax + 50, w)
+
+    cropped_np = image[rmin:rmax+1, cmin_pad:cmax_pad]
     cropped_img = Image.fromarray(cropped_np)
 
     return cropped_img
+
+
+
+def compute_mask_entry(row: pd.Series, masker: ApplyLungMask) -> Tuple[str, np.ndarray]:
+    key = row["Path"]
+    mask = masker.compute_combined_mask(row["Left Lung"], row["Right Lung"], row["Heart"])
+    return key, mask.astype(np.uint8)
 
 
 class MyDataset(Dataset):
@@ -72,6 +83,7 @@ class MyDataset(Dataset):
         labels: Union[list, np.ndarray, pd.Series],
         dataframe: pd.DataFrame,
         masked: bool = False,
+        crop_masked: bool = False,
         clahe: bool = False,
         transform: Union[torchvision.transforms.Compose, None] = None,
         base_dir: Optional[str] = None,
@@ -81,6 +93,7 @@ class MyDataset(Dataset):
         self.image_paths = list(image_paths)
         self.labels = labels
         self.masked = masked
+        self.crop_masked = crop_masked
         self.clahe = clahe
         self.df = dataframe.reset_index(drop=True)
         self.base_dir = base_dir
@@ -88,13 +101,14 @@ class MyDataset(Dataset):
         self.is_multilabel = is_multilabel
         self.external_ood_test = external_ood_test
 
-        self.create_clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        self.create_clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(8,8))
         self.masker  = ApplyLungMask()
-        # if self.masked:
-        #     if self.external_ood_test:
-        #         self.base_dir = '/deep_learning/output/Sutariya/main/chexpert/dataset'
-        #     else:
-        #         self.base_dir = '/deep_learning/output/Sutariya/MIMIC-CXR-MASK/'
+
+        if self.masked:
+            if self.external_ood_test:
+                self.base_dir = '/deep_learning/output/Sutariya/main/chexpert/dataset'
+            else:
+                self.base_dir = '/deep_learning/output/Sutariya/MIMIC-CXR-MASK/'
 
     def __len__(self) -> int:
         return len(self.image_paths)
@@ -106,14 +120,14 @@ class MyDataset(Dataset):
         image = Image.open(full_path)
         row = self.df.iloc[idx]
 
-        if self.masked:
+        
+        if self.crop_masked:
             image = image.resize((1024, 1024))
             mask = self.masker.compute_combined_mask(row["Left Lung"], row["Right Lung"], row["Heart"])
-            image = crop_image_to_mask(image, mask)
-
-        image = image.resize((224, 224))
+            image = crop_image_to_mask(image, mask) 
 
         if self.clahe:
+            image = image.resize((224, 224))
             img_np = np.array(image)
             img_np = self.create_clahe.apply(img_np)
             image =  Image.fromarray(img_np)

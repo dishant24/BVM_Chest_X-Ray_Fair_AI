@@ -19,6 +19,5 @@ class LabelSmoothingLoss(nn.Module):
         elif self.mode == 'multilabel':
             with torch.no_grad():
                 smooth_target = target * (1 - self.smoothing) + 0.5 * self.smoothing
-
             return F.binary_cross_entropy_with_logits(x, smooth_target)
 

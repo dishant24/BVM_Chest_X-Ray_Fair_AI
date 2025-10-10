@@ -7,15 +7,6 @@ from functools import partial
 import sys
 import pandas as pd
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from data_preprocessing.process_dataset import (
-    add_demographic_data,
-    add_lung_mask_dataset,
-    add_metadata,
-    cleaning_datasets,
-    get_group_by_data,
-    merge_file_path_and_add_dicom_id,
-    sampling_datasets,
-)
 
 from datasets.data import ApplyLungMask 
 import wandb
@@ -71,13 +62,10 @@ if __name__ == "__main__":
 
      train_output_path = "/deep_learning/output/Sutariya/main/mimic/dataset/train_clean_dataset.csv"
      test_output_path = "/deep_learning/output/Sutariya/main/mimic/dataset/test_clean_dataset.csv"
-     valid_output_path ="/deep_learning/output/Sutariya/main/mimic/dataset/validation_clean_dataset.csv"
 
-     train_df, test_df, valid_df = pd.read_csv(train_output_path), pd.read_csv(test_output_path), pd.read_csv(valid_output_path)
+     train_df, test_df = pd.read_csv(train_output_path), pd.read_csv(test_output_path)
 
-     merge_df = pd.concat([train_df, test_df, valid_df])
-
-     merge_df = add_lung_mask_dataset(merge_df)
+     merge_df = pd.concat([train_df, test_df])
 
      masker = ApplyLungMask(
      margin_radius=60,
