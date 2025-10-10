@@ -100,7 +100,7 @@ def model_eval_metrics_saving(
     name: str,
     masked:bool=False,
     clahe:bool=False,
-    reweight:bool=False,
+    crop_masked:bool=False,
     base_dir: str =None,
     device: Optional[torch.device] =None,
     multi_label: bool =True,
@@ -131,7 +131,7 @@ def model_eval_metrics_saving(
                             dataframe= dataframe,
                             masked= masked,
                             clahe= clahe,
-                            reweight= reweight,
+                            crop_masked= crop_masked,
                             base_dir= base_dir,
                             shuffle=False,
                             is_multilabel=multi_label,
@@ -219,7 +219,7 @@ def model_eval_metrics_saving(
                     dataframe= group_data,
                     masked= masked,
                     clahe= clahe,
-                    reweight= reweight,
+                    crop_masked= crop_masked,
                     transform = None,
                     base_dir= base_dir,
                     shuffle=False,
@@ -278,7 +278,7 @@ def model_testing(
     masked: bool,
     clahe: bool,
     task: str,
-    reweight: bool,
+    crop_masked: bool,
     name:str,
     base_dir:str,
     device: Optional[torch.device] =None,
@@ -312,7 +312,8 @@ def model_testing(
     with torch.no_grad():
         for inputs, labels, _ in test_loader:
             inputs, labels = inputs.cuda(non_blocking=True), labels.cuda(non_blocking=True)
-
+            if not multi_label:
+                labels = torch.argmax(labels, dim=1).long()
             outputs = model(inputs)
             preds = (
                 torch.sigmoid(outputs).detach().cpu().numpy()
@@ -375,7 +376,7 @@ def model_testing(
                     dataframe= group_data,
                     masked= masked,
                     clahe= clahe,
-                    reweight= reweight,
+                    crop_masked= crop_masked,
                     transform= None,
                     base_dir= base_dir,
                     shuffle=False,
@@ -424,7 +425,7 @@ def model_testing(
                     y_scores= group_preds,
                     labels= original_labels,
                     task= task,
-                    log_name=f"External Testing {task} macro ROC-AUC for {group}",
+                    log_name=f"Testing {task} macro ROC-AUC for {group}",
                     multilabel=multi_label,
                     group_name=group,
                 )
