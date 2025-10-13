@@ -1,11 +1,10 @@
 import os
 import sys
-
 import pandas as pd
 import torch
 import torchvision
 import wandb
-from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from data_preprocessing.process_dataset import (
@@ -15,20 +14,22 @@ from data_preprocessing.process_dataset import (
     cleaning_datasets,
     merge_file_path_and_add_dicom_id,
     sampling_datasets,
+    merge_dataframe,
+    add_lung_mask_chexpert_dataset
 )
+
 from datasets.dataloader import prepare_dataloaders
-from datasets.split_store_dataset import split_and_save_datasets, split_train_test_data
-from evaluation.model_testing import model_testing, model_eval_metrics_saving
+from datasets.split_store_dataset import split_train_test_data
+from evaluation.model_testing import model_testing
 from models.build_model import DenseNet_Model, model_transfer_learning
 from train.model_training import model_training
 from helper.losses import LabelSmoothingLoss
-import os
+from sklearn.preprocessing import OneHotEncoder
 import argparse
 
-
 if __name__ == "__main__":
+    # Define all the use taken inputs here
     parser = argparse.ArgumentParser(description="Training and Testing Arguments")
-
     parser.add_argument('--random_state', type=int, default=100)
     parser.add_argument('--epoch', type=int, default=30)
     parser.add_argument('--task', type=str, choices=["diagnostic", "race"], default="diagnostic")
@@ -36,14 +37,12 @@ if __name__ == "__main__":
     parser.add_argument('--training', action='store_true')
     parser.add_argument('--masked', action='store_true')
     parser.add_argument('--clahe', action='store_true')
-    parser.add_argument('--reweight', action='store_true')
+    parser.add_argument('--crop_masked', action='store_true')
     parser.add_argument('--is_groupby', action='store_true')
     parser.add_argument('--eval_metrics', action='store_true')
     parser.add_argument('--external_ood_test', action='store_true')
-    
     args = parser.parse_args()
-    print(vars(args))
-    torch.cuda.empty_cache()
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     random_state = args.random_state
     epoch = args.epoch
@@ -52,13 +51,15 @@ if __name__ == "__main__":
     training = args.training
     masked = args.masked
     clahe = args.clahe
-    reweight = args.reweight
+    crop_masked = args.crop_masked
     eval_metrics = args.eval_metrics
     is_groupby = args.is_groupby
     external_ood_test = args.external_ood_test
 
+    # Select base folder of dataset
     base_dir = "MIMIC-CXR/physionet.org/files/mimic-cxr-jpg/2.1.0/"
     name = f"model_baseline_{dataset}_{random_state}"
+    category_order = ['Asian', 'Black', 'White', 'Hispanic']
 
     if clahe:
         name = f"clahe_preprocessing_{name}"
@@ -66,8 +67,8 @@ if __name__ == "__main__":
     if masked:
         name = f"mask_preprocessing_{name}"
 
-    if reweight:
-        name = f"reweight_preprocessing_{name}"
+    if crop_masked:
+        name = f"crop_masked_preprocessing_{name}"
 
     if dataset == 'mimic':
         train_output_path = "/deep_learning/output/Sutariya/main/mimic/dataset/train_clean_dataset.csv"
@@ -81,9 +82,10 @@ if __name__ == "__main__":
 
     if external_ood_test:
         external_ood_test  = True
-        external_train_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/train_clean_dataset.csv"
-        external_val_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/validation_clean_dataset.csv"
-        external_test_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/test_clean_dataset.csv"
+        demographic_data_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/demographics_CXP.csv"
+        train_dataset_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/train.csv"
+        valid_dataset_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/valid.csv"
+        external_total_path = "/deep_learning/output/Sutariya/main/chexpert/dataset/chexpert_total_dataset.csv"
     else:
         external_ood_test = False
     
@@ -155,55 +157,8 @@ if __name__ == "__main__":
             f"Files {train_output_path} && {test_output_path} already exists. Skipping save..."
         )
 
-    # test_data = pd.read_csv(test_output_path)
-    # val_df = pd.read_csv(valid_output_path)
-    # top_races = val_df["race"].value_counts().index[:5]
-    # val_df = val_df[val_df["race"].isin(top_races)].copy()
-    # race_weights = "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_auroc_stopping_cosine_label_smoothing_mimic_race_101.pth"
-    # race_lung_weights = "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_lung_masking_preprocessing_mimic_race_101.pth"
-    # race_clahe_weights= "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_clahe_preprocessing_mimic_race_101.pth"
-    # weights = "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_auroc_stopping_cosine_label_smoothing_mimic_diagnostic_101.pth"
-    # lung_weights = "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_lung_masking_preprocessingmimic_diagnostic_101.pth"
-    # clahe_weights = "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_clahe_preprocessing_mimic_diagnostic_101.pth"
-    
-    # generate_plot(weights, lung_weights, clahe_weights, device, val_df, multi_label, base_dir)
-    # generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights, lung_weights, clahe_weights, device, test_data, base_dir)
-    # labels = [
-    #     "No Finding",
-    #     "Enlarged Cardiomediastinum",
-    #     "Cardiomegaly",
-    #     "Lung Opacity",
-    #     "Lung Lesion",
-    #     "Edema",
-    #     "Consolidation",
-    #     "Pneumonia",
-    #     "Atelectasis",
-    #     "Pneumothorax",
-    #     "Pleural Effusion"]
-
-    # test_loader = prepare_dataloaders(
-    #             test_data["Path"],
-    #             test_data[labels].values,
-    #             test_data,
-    #             masked,
-    #             clahe,
-    #             base_dir,
-    #             shuffle=False,
-    #             is_multilabel=multi_label,
-    #         )
-    # val_loader = prepare_dataloaders(
-    #             val_df["Path"],
-    #             val_df[labels].values,
-    #             val_df,
-    #             masked,
-    #             clahe,
-    #             base_dir,
-    #             shuffle=False,
-    #             is_multilabel=multi_label,
-    #         )
-     
-    # model_calibration(clahe_weights, device, test_loader, val_loader, labels)
     if task == "diagnostic":
+        # Define disease labels
         labels = [
         "No Finding",
         "Enlarged Cardiomediastinum",
@@ -219,23 +174,23 @@ if __name__ == "__main__":
 
         model_path = f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{task}/{name}.pth"
         if training:
+            # If model weights don't exist, prepare data and train model
             if not os.path.exists(model_path):
                 train_df = pd.read_csv(train_output_path)
                 val_df = pd.read_csv(valid_output_path)
+
+                # Filter by mask quality if masked training is specified
                 if masked:
                     train_df = train_df[train_df['Dice RCA (Mean)'] > 0.7] 
                     val_df = val_df[val_df['Dice RCA (Mean)'] > 0.7]
-                if reweight:
-                    top_races = train_df["race"].value_counts().index[:5]
-                    train_df = train_df[train_df["race"].isin(top_races)].copy()
-                    val_df = val_df[val_df["race"].isin(top_races)].copy()
+        
                 train_loader = prepare_dataloaders(
                     images_path= train_df["Path"],
                     labels= train_df[labels].values,
                     dataframe= train_df,
                     masked= masked,
                     clahe= clahe,
-                    reweight= reweight,
+                    crop_masked= crop_masked,
                     transform = None,
                     base_dir= base_dir,
                     shuffle=True,
@@ -248,20 +203,24 @@ if __name__ == "__main__":
                     dataframe= val_df,
                     masked= masked,
                     clahe= clahe,
-                    reweight= reweight,
+                    crop_masked= crop_masked,
                     transform = None,
                     base_dir= base_dir,
                     shuffle=True,
                     is_multilabel=multi_label,
                     external_ood_test = False
                 )
+
+                # Use label smoothing loss to improve generalization
                 criterion = LabelSmoothingLoss(smoothing=0.1, mode='multilabel')
-                # criterion = nn.BCEWithLogitsLoss()
+
+                # Initialize DenseNet121 model with ImageNet weights and 11 output features
                 model = DenseNet_Model(
                     weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1,
                     out_feature=11
                 )
 
+                # Train the model
                 model_training(
                 model= model,
                 train_loader= train_loader,
@@ -275,7 +234,7 @@ if __name__ == "__main__":
                 )
 
                 model_dir = os.path.dirname(model_path)
-
+                # Make sure model checkpoint directory exists
                 if not os.path.exists(model_dir):
                     os.makedirs(model_dir)
                 torch.save(model.state_dict(), model_path)
@@ -284,6 +243,7 @@ if __name__ == "__main__":
                 print("File already exists skip training...")
 
         else:   
+            # Load pretrained model weights if not training
             weights = torch.load(
                                 model_path,
                                 map_location=device,
@@ -300,7 +260,7 @@ if __name__ == "__main__":
                     dataframe= testing_df,
                     masked= masked,
                     clahe= clahe,
-                    reweight= reweight,
+                    crop_masked= crop_masked,
                     transform = None,
                     base_dir= base_dir,
                     shuffle=False,
@@ -308,6 +268,7 @@ if __name__ == "__main__":
                     external_ood_test = False
                 )
         
+        # Evaluate model on test data
         model_testing(test_loader=test_loader,
                     model= model, 
                     dataframe= testing_df, 
@@ -315,7 +276,7 @@ if __name__ == "__main__":
                     masked= masked, 
                     clahe= clahe, 
                     task= task, 
-                    reweight=reweight,
+                    crop_masked=crop_masked,
                     name= name, 
                     base_dir=base_dir, 
                     device= device, 
@@ -323,36 +284,19 @@ if __name__ == "__main__":
                     is_groupby=is_groupby,
                     external_ood_test= False)
 
-        if eval_metrics:
-            model_eval_metrics_saving(
-                        dataframe= testing_df,
-                        model= model, 
-                        dataset= dataset,
-                        original_labels= labels, 
-                        masked= masked, 
-                        clahe= clahe, 
-                        reweight= reweight,
-                        name= name, 
-                        base_dir= base_dir, 
-                        device= device, 
-                        multi_label=multi_label, 
-                        is_groupby=is_groupby,
-                        external_ood_test = False)
-
-        
+        # Run external out-of-distribution (Chexpert) testing if specified
         if external_ood_test:
             base_dir = '/deep_learning/output/Sutariya/main/chexpert/dataset'
-            ex_test_df = pd.read_csv(external_test_path)
-            ex_train_df = pd.read_csv(external_train_path)
-            ex_val_df = pd.read_csv(external_val_path)
-            ex_total_df = pd.concat([ex_val_df, ex_train_df, ex_test_df])
+            ex_total_df = pd.read_csv(external_total_path)
+
+
             test_loader = prepare_dataloaders(
                     images_path= ex_total_df["Path"],
                     labels= ex_total_df[labels].values,
                     dataframe= ex_total_df,
                     masked= masked,
                     clahe= clahe,
-                    reweight= reweight,
+                    crop_masked= crop_masked,
                     transform = None,
                     base_dir= base_dir,
                     shuffle=False,
@@ -360,6 +304,7 @@ if __name__ == "__main__":
                     external_ood_test = external_ood_test
                 )
         
+            # Evaluate on external OOD test data
             model_testing(test_loader=test_loader,
                         model= model, 
                         dataframe= ex_total_df, 
@@ -367,7 +312,7 @@ if __name__ == "__main__":
                         masked= masked, 
                         clahe= clahe, 
                         task= task, 
-                        reweight= reweight,
+                        crop_masked= crop_masked,
                         name= name, 
                         base_dir=base_dir, 
                         device= device, 
@@ -376,28 +321,38 @@ if __name__ == "__main__":
                         external_ood_test =external_ood_test)
 
     elif task == "race":
-        label_encoder = LabelEncoder()
         model_path = f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{task}/{name}.pth"
+        encoder = OneHotEncoder(categories=[category_order], handle_unknown='ignore', sparse_output=False)
         if training:
+            # Train model if weights are not already saved
             if not os.path.exists(model_path):
                 train_df = pd.read_csv(train_output_path)
                 val_df = pd.read_csv(valid_output_path) 
+
+                # Filter datasets by mask quality if masked training requested
                 if masked:
                     train_df = train_df[train_df['Dice RCA (Mean)'] > 0.7]
                     val_df = val_df[val_df['Dice RCA (Mean)'] > 0.7]
-                top_races = train_df["race"].value_counts().index[:4]
-                train_df = train_df[train_df["race"].isin(top_races)].copy()
-                val_df = val_df[val_df["race"].isin(top_races)].copy()
-                train_df["race_encoded"] = label_encoder.fit_transform(train_df["race"])
-                val_df["race_encoded"] = label_encoder.transform(val_df["race"])
-                labels = label_encoder.classes_
+                    
+                # Used OneHotEncoding to treat all race label seperately and as multi-class problem    
+                train_encoded_array = encoder.fit_transform(train_df[['race']])
+                new_column_names = encoder.get_feature_names_out(['race'])
+                train_df_encoded = pd.DataFrame(train_encoded_array, columns=new_column_names, index=train_df.index)
+                train_df = pd.concat([train_df, train_df_encoded], axis=1)
+                train_df.dropna(axis=0, inplace=True)
+                val_encoded_array = encoder.transform(val_df[['race']])
+                val_df_encoded = pd.DataFrame(val_encoded_array, columns=new_column_names, index=val_df.index)
+                val_df = pd.concat([val_df, val_df_encoded], axis=1)
+                val_df.dropna(axis=0, inplace=True)
+
+
                 train_loader = prepare_dataloaders(
                     images_path= train_df["Path"],
                     labels= train_df["race_encoded"].values,
                     dataframe= train_df,
                     masked= masked,
                     clahe= clahe,
-                    reweight= reweight,
+                    crop_masked= crop_masked,
                     transform = None,
                     base_dir= base_dir,
                     shuffle=True,
@@ -410,18 +365,24 @@ if __name__ == "__main__":
                     dataframe= val_df,
                     masked= masked,
                     clahe= clahe,
-                    reweight= reweight,
+                    crop_masked= crop_masked,
                     transform= None,
                     base_dir= base_dir,
                     shuffle=True,
                     is_multilabel=multi_label,
                     external_ood_test = False
                 )
+
+                # Use label smoothing loss for multiclass classification
                 criterion = LabelSmoothingLoss(smoothing=0.1, mode='multiclass')
+
+                # Initialize base DenseNet model for 4-class race classification
                 base_model = DenseNet_Model(
                     weights=None,
                     out_feature=4
                 )
+
+                # Transfer learning from diagnostic model if available
                 model = model_transfer_learning(
                     f"/deep_learning/output/Sutariya/main/mimic/checkpoints/{diag_trained_model_path}",
                     base_model,
@@ -442,7 +403,7 @@ if __name__ == "__main__":
                     )
                 
                 model_dir = os.path.dirname(model_path)
-
+                # Ensure model checkpoint directory exists and save weights
                 if not os.path.exists(model_dir):
                     os.makedirs(model_dir)
                 torch.save(model.state_dict(), model_path)
@@ -450,6 +411,7 @@ if __name__ == "__main__":
                 print("File already exists skip training...")
 
         else:
+            # Load pretrained model weights for evaluation
             weights = torch.load(
                             model_path,
                             map_location=device,
@@ -458,17 +420,21 @@ if __name__ == "__main__":
             model = DenseNet_Model(weights=None, out_feature=4)
             model.load_state_dict(weights)
 
-        testing_df = pd.read_csv(test_output_path)
-        testing_df["race_encoded"] = label_encoder.fit_transform(testing_df["race"])
-        labels = label_encoder.classes_
+        test_df = pd.read_csv(test_output_path)
+        test_df = test_df[test_df['race'].isin(['Asian', 'Black', 'White', 'Hispanic'])]
+        test_encoded_array = encoder.fit_transform(test_df[['race']])
+        new_column_names = encoder.get_feature_names_out(['race'])
+        test_df_encoded = pd.DataFrame(test_encoded_array, columns=new_column_names)
+        test_df = pd.concat([test_df, test_df_encoded], axis=1)
+        test_df.dropna(axis=0, inplace=True)
 
         test_loader = prepare_dataloaders(
-                    images_path= testing_df["Path"],
-                    labels= testing_df["race_encoded"].values,
-                    dataframe= testing_df,
+                    images_path= test_df["Path"],
+                    labels= test_df[new_column_names].values,
+                    dataframe= test_df,
                     masked= masked,
                     clahe= clahe,
-                    reweight= reweight,
+                    crop_masked= crop_masked,
                     transform = None,
                     base_dir= base_dir,
                     shuffle=False,
@@ -476,14 +442,15 @@ if __name__ == "__main__":
                     external_ood_test = False
                 )
         
+        # Perform model testing and evaluation
         model_testing(test_loader=test_loader,
                       model= model, 
-                      dataframe= testing_df, 
-                      original_labels= labels, 
+                      dataframe= test_df, 
+                      original_labels= new_column_names, 
                       masked= masked, 
                       clahe= clahe, 
                       task= task, 
-                      reweight= reweight,
+                      crop_masked= crop_masked,
                       name= name, 
                       base_dir=base_dir, 
                       device= device, 
@@ -491,25 +458,24 @@ if __name__ == "__main__":
                       is_groupby=is_groupby,
                       external_ood_test = False)
 
-
+        # External OOD evaluation if enabled
         if external_ood_test:
             base_dir = '/deep_learning/output/Sutariya/main/chexpert/dataset'
-            ex_test_df = pd.read_csv(external_test_path)
-            ex_train_df = pd.read_csv(external_train_path)
-            ex_val_df = pd.read_csv(external_val_path)
-
-            ex_total_df = pd.concat([ex_val_df, ex_train_df, ex_test_df])
-
-            ex_total_df["race_encoded"] = label_encoder.fit_transform(ex_total_df["race"])
-            labels = label_encoder.classes_
+            ex_total_df = pd.read_csv(external_total_path)
+            ex_total_df = ex_total_df[ex_total_df['race'].isin(['Asian', 'Black', 'White', 'Hispanic'])]
+            ex_total_encoded_array = encoder.fit_transform(ex_total_df[['race']])
+            new_column_names = encoder.get_feature_names_out(['race'])
+            ex_total_df_encoded = pd.DataFrame(ex_total_encoded_array, columns=new_column_names)
+            ex_total_df = pd.concat([ex_total_df, ex_total_df_encoded], axis=1)
+            ex_total_df.dropna(axis=0, inplace=True)
     
             test_loader = prepare_dataloaders(
                     images_path= ex_total_df["Path"],
-                    labels= ex_total_df["race_encoded"].values,
+                    labels= ex_total_df[new_column_names].values,
                     dataframe= ex_total_df,
                     masked= masked,
                     clahe= clahe,
-                    reweight= reweight,
+                    crop_masked= crop_masked,
                     transform = None,
                     base_dir= base_dir,
                     shuffle=False,
@@ -520,22 +486,14 @@ if __name__ == "__main__":
             model_testing(test_loader=test_loader,
                         model= model, 
                         dataframe= ex_total_df, 
-                        original_labels= labels, 
+                        original_labels= new_column_names, 
                         masked= masked, 
                         clahe= clahe, 
                         task= task, 
-                        reweight= reweight,
+                        crop_masked= crop_masked,
                         name= name, 
                         base_dir=base_dir, 
                         device= device, 
                         multi_label=multi_label, 
                         is_groupby=is_groupby,
                         external_ood_test= external_ood_test)
-
-    # weights = "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_auroc_stopping_cosine_label_smoothing_mimic_diagnostic_101.pth"
-    # lung_weights = "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_lung_masking_preprocessingmimic_diagnostic_101.pth"
-    # clahe_weights = "/deep_learning/output/Sutariya/main/mimic/checkpoints/traininig_with_clahe_preprocessing_mimic_diagnostic_101.pth"
-    # generate_tabel(test_loader, lung_test_loader, clahe_test_loader, weights, lung_weights, clahe_weights, device, test_model, labels, testing_df, base_dir)
-    # generate_strip_plot(test_loader, lung_test_loader, clahe_test_loader, weights, lung_weights, clahe_weights, device, test_model, labels, testing_df, multi_label)
-                
-            

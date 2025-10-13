@@ -13,39 +13,96 @@ from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_auc_score
 import pandas as pd
 
-def generate_race_roc_score(weight, race_loader, device, labels, test_df, avg_method):
+def generate_race_roc_score(weight:str, race_loader: torch.utils.data.DataLoader, device: torch.device, labels: list, test_df: pd.DataFrame, avg_method: str)-> pd.DataFrame:
 
-     test_model = DenseNet_Model(weights=None, out_feature=4)
+    """
+    Computes ROC-AUC scores by race for classification tasks using a given model and dataloader.
+    Binarizes labels if needed and calculates per-class and overall AUROC scores.
 
-     race_all_labels, race_all_preds, all_ids = get_labels(race_loader, weight, device, test_model, False)
-     num_classes = race_all_preds.shape[1]
-     race_all_labels = label_binarize(race_all_labels, classes=list(range(num_classes)))
+    Parameters
+    ----------
+    weight : str
+        Path to the model weights file.
+    race_loader : torch.utils.data.DataLoader
+        DataLoader containing the test data grouped by race.
+    device : torch.device
+        Device to perform inference on (CPU or GPU).
+    labels : list of str
+        List of race labels corresponding to prediction classes.
+    test_df : pd.DataFrame
+        DataFrame containing test data metadata (not directly used here but kept for interface consistency).
+    avg_method : str
+        Averaging method for roc_auc_score (e.g., 'macro', 'weighted').
 
-     auc_records = []
-     for i in range(num_classes):
-          y_true = race_all_labels[:, i]
-          y_pred = race_all_preds[:, i]
-          try:
-              auc = roc_auc_score(y_true, y_pred, average=avg_method)
-          except ValueError:
-              auc = float('nan')   
-          auc_records.append({
-                'Race': labels[i],
-                'AUROC': auc,
-          })
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing ROC-AUC scores for each race and overall.
+    """
 
-     all_auc = roc_auc_score(race_all_labels, race_all_preds, average=avg_method)
-     auc_records.append({
-                'Race': 'all',
-                'AUROC': all_auc,
-          })
+    test_model = DenseNet_Model(weights=None, out_feature=4)
 
-     auc_df = pd.DataFrame(auc_records)
-     return auc_df
+    race_all_labels, race_all_preds, all_ids = get_labels(race_loader, weight, device, test_model, False)
+    num_classes = race_all_preds.shape[1]
+    race_all_labels = label_binarize(race_all_labels, classes=list(range(num_classes)))
+
+    auc_records = []
+    for i in range(num_classes):
+         y_true = race_all_labels[:, i]
+         y_pred = race_all_preds[:, i]
+         try:
+             auc = roc_auc_score(y_true, y_pred, average=avg_method)
+         except ValueError:
+             auc = float('nan')   
+         auc_records.append({
+               'Race': labels[i],
+               'AUROC': auc,
+         })
+
+    all_auc = roc_auc_score(race_all_labels, race_all_preds, average=avg_method)
+    auc_records.append({
+               'Race': 'all',
+               'AUROC': all_auc,
+         })
+
+    auc_df = pd.DataFrame(auc_records)
+    return auc_df
 
 
 
-def generate_tabel(race_weights, race_lung_weights, race_clahe_weights, weights, lung_weights, clahe_weights, device, test_df, base_dir, external_ood_test):
+def generate_tabel(race_weights:str, race_lung_weights:str, race_clahe_weights:str, weights:str, lung_weights:str, clahe_weights:str, device:torch.device, test_df:pd.DataFrame, base_dir:str, external_ood_test: bool = False)-> None:
+
+    """
+    Generates detailed AUROC tables and summary metrics comparing different preprocessing methods across 
+    diseases and races, then saves the results as LaTeX formatted tables.
+
+    Parameters
+    ----------
+    race_weights : str
+        Model weights for race prediction baseline.
+    race_lung_weights : str
+        Model weights for race prediction with lung masking.
+    race_clahe_weights : str
+        Model weights for race prediction with CLAHE enhancement.
+    weights : str
+        Baseline model weights for disease prediction.
+    lung_weights : str
+        Model weights with lung masking for disease prediction.
+    clahe_weights : str
+        Model weights with CLAHE enhancement for disease prediction.
+    device : torch.device
+        Device to run model inference on.
+    test_df : pd.DataFrame
+        DataFrame containing test images, labels, metadata including race.
+    base_dir : str
+        Base directory path for images.
+    external_ood_test : bool
+        Whether using external out-of-distribution test data.
+
+    Returns
+    -------
+    None
+    """
 
     label_encoder = LabelEncoder()
     test_df["race_encoded"] = label_encoder.fit_transform(test_df["race"])

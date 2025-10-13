@@ -15,6 +15,26 @@ from tqdm import tqdm
 import torchvision
 
 def decode_rle_numpy(rle_str: Optional[str], shape: Tuple[int, int]) -> np.ndarray:
+    """
+    Decodes a run-length encoded (RLE) string into a binary mask of a specified shape using NumPy.
+
+    RLE is a compact way to represent binary masks, encoding the start positions and lengths of runs 
+    of 1s (mask) in a flattened array. This function converts the RLE string back into the original 2D mask.
+
+    Parameters
+    ----------
+    rle_str : Optional[str]
+        Run-length encoded string with space-separated start positions and lengths.
+        If None or NaN, returns an empty mask.
+    shape : Tuple[int, int]
+        The shape (height, width) of the output mask.
+
+    Returns
+    -------
+    np.ndarray
+        A 2D NumPy array of dtype uint8 representing the decoded mask,
+        with 1s indicating the mask and 0s elsewhere.
+    """
     if pd.isna(rle_str) or not isinstance(rle_str, str):
         return np.zeros(shape, dtype=np.uint8)
 
@@ -28,6 +48,15 @@ def decode_rle_numpy(rle_str: Optional[str], shape: Tuple[int, int]) -> np.ndarr
     return mask.reshape(shape)
 
 class ApplyLungMask:
+    """
+    A utility class to apply lung and heart masks based on run-length encoded (RLE) mask strings,
+    decoding them to binary masks of a given original shape and combining them into a single mask.
+
+    Attributes
+    ----------
+    original_shape : Tuple[int, int]
+        The height and width of the mask images (default is (1024, 1024)).
+    """
     def __init__(
         self,
         original_shape: Tuple[int, int] = (1024, 1024),
@@ -45,6 +74,25 @@ class ApplyLungMask:
 
 
 def crop_image_to_mask(image: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """
+    Crops an image tightly around the non-zero regions of a corresponding binary mask with optional horizontal padding.
+
+    The cropping is based on finding the bounding box of the mask's foreground pixels. If the mask is empty,
+    it returns the original image and warns the user.
+
+    Parameters
+    ----------
+    image : np.ndarray
+        The input image array (height x width x channels or grayscale).
+    mask : np.ndarray
+        A binary mask array of the same height and width as the image.
+
+    Returns
+    -------
+    np.ndarray or PIL.Image.Image
+        The cropped image focused on the mask region, returned as a PIL Image.
+        Returns original image if the mask is empty.
+    """
 
     image = np.array(image)
     assert image.shape[:2] == mask.shape[:2], "Image and mask must have same height and width"
@@ -59,6 +107,7 @@ def crop_image_to_mask(image: np.ndarray, mask: np.ndarray) -> np.ndarray:
     rmin, rmax = np.where(rows)[0][[0, -1]]
     cmin, cmax = np.where(cols)[0][[0, -1]]
 
+    # Add 50 pixel margin to 1024 resolution image to capture peripheral view
     h, w = mask.shape
     cmin_pad = max(cmin - 50, 0)
     cmax_pad = min(cmax + 50, w)
@@ -77,6 +126,39 @@ def compute_mask_entry(row: pd.Series, masker: ApplyLungMask) -> Tuple[str, np.n
 
 
 class MyDataset(Dataset):
+    """
+    Custom PyTorch dataset class for loading dataset.
+
+    Attributes
+    ----------
+    image_paths : list
+        List of image file paths relative to base_dir.
+    labels : list or numpy.ndarray or pd.Series
+        Corresponding labels for each image.
+    df : pd.DataFrame
+        Metadata dataframe containing mask RLEs and other info.
+    masked : bool
+        Whether to apply lung masks on loaded images.
+    crop_masked : bool
+        Whether to crop image tightly around lung mask region.
+    clahe : bool
+        Whether to apply CLAHE histogram equalization for contrast enhancement.
+    transform : torchvision.transforms.Compose or None
+        Optional transforms to apply on images.
+    base_dir : str or None
+        Base directory for image paths.
+    is_multilabel : bool
+        Flag to indicate if labels are multilabel (float tensor) or single-label (long tensor).
+    external_ood_test : bool
+        Whether to use external dataset directory for masking.
+
+    Methods
+    -------
+    __len__()
+        Returns number of samples.
+    __getitem__(idx)
+        Loads and processes image and returns image tensor, label tensor, and relative path.
+    """
     def __init__(
         self,
         image_paths: Union[list, pd.Series],
@@ -104,6 +186,7 @@ class MyDataset(Dataset):
         self.create_clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(8,8))
         self.masker  = ApplyLungMask()
 
+        # We already compute mask image of both dataset and used this computed mask image here
         if self.masked:
             if self.external_ood_test:
                 self.base_dir = '/deep_learning/output/Sutariya/main/chexpert/dataset'

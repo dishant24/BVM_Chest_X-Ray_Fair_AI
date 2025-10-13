@@ -12,6 +12,30 @@ def sample_test(df_group: pd.DataFrame, disease: Union[list, str], n_samples: in
 
 
 def split_train_test_data(dataset: pd.DataFrame, N: int, train_path: Union[list, str, os.path], test_path: Union[list, str, os.path], split_by: str="race")-> None:
+    """
+    Splits the dataset into train and test sets based on stratification by a specified column (default "race").
+    Samples up to N test samples per disease within each group specified by 'split_by' column.
+    Saves the train and test splits as CSV files to the specified paths.
+
+    Parameters
+    ----------
+    dataset : pd.DataFrame
+        The full dataset to split.
+    N : int
+        Number of test samples to draw per disease within each group.
+    train_path : Union[list, str, os.PathLike]
+        File path to save the training set CSV.
+    test_path : Union[list, str, os.PathLike]
+        File path to save the testing set CSV.
+    split_by : str, optional
+        Column name by which to group and stratify splits (default "race").
+
+    Returns
+    -------
+    None
+        Outputs train and test CSV files at the specified locations.
+    """
+    
     test_dfs = []
     diseases = [
         "No Finding",
@@ -26,8 +50,7 @@ def split_train_test_data(dataset: pd.DataFrame, N: int, train_path: Union[list,
         "Pneumothorax",
         "Pleural Effusion",
     ]
-    # Select only top 4 values of the column
-    groups = dataset[split_by].value_counts().index[:4].values
+    groups = dataset[split_by].values
     print(groups)
     df = dataset.copy()
     train_group = df.groupby(split_by)

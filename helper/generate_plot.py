@@ -1,5 +1,6 @@
 import sys
 import os
+from typing import Tuple
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from matplotlib import pyplot as plt
@@ -13,7 +14,31 @@ from datasets.dataloader import prepare_dataloaders
 from models.build_model import DenseNet_Model
 import argparse
 
-def get_labels(test_loader, weight, device, model, multi_label):
+def get_labels(test_loader: torch.utils.data.DataLoader, weight: str, device:torch.device , model: torch.nn.Module, multi_label: bool = True) -> Tuple:
+    """
+    Obtains predictions and true labels from a given PyTorch model on a test dataset.
+
+    Parameters
+    ----------
+    test_loader : torch.utils.data.DataLoader
+        DataLoader providing batches of test images and labels.
+    weight : str
+        Path to the saved model weights file.
+    device : torch.device
+        Device on which to perform inference (CPU or GPU).
+    model : torch.nn.Module
+        The trained model to evaluate.
+    multi_label : bool
+        Whether the task is multi-label classification (True) or single-label classification (False).
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - all_labels: numpy array of true labels.
+        - all_preds: numpy array of predicted probabilities or scores.
+        - all_ids: list of indices or identifiers corresponding to predictions.
+    """
     model.eval()
     model.to(device)
     weights = torch.load(weight,
@@ -45,11 +70,35 @@ def get_labels(test_loader, weight, device, model, multi_label):
         all_ids
     )
 
-# -------------------------
-# Generate Strip Plot
-# -------------------------
 
-def get_auroc_by_groups(test_loader, weights, device, labels, test_df, avg_method, multi_label):
+def get_auroc_by_groups(test_loader:torch.utils.data.DataLoader, weights:str, device:torch.device, labels: list[str], test_df: pd.DataFrame, avg_method: str, multi_label:bool = True)-> pd.DataFrame:
+
+    """
+    Computes the AUROC (Area Under ROC Curve) scores for each disease label within different race groups,
+    as well as overall AUROC scores across all races. Uses model predictions obtained from a test DataLoader.
+
+    Parameters
+    ----------
+    test_loader : torch.utils.data.DataLoader
+        DataLoader for the test dataset.
+    weights : str
+        Path to the model weights file.
+    device : torch.device
+        Device on which to perform inference (CPU/GPU).
+    labels : list of str
+        List of disease label names.
+    test_df : pd.DataFrame
+        Test dataset DataFrame containing metadata including 'race' and ground truth labels.
+    avg_method : str
+        Averaging method parameter for sklearn's roc_auc_score (e.g., 'macro', 'weighted').
+    multi_label : bool
+        Whether the task is multi-label classification.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with AUROC scores per disease per race group and overall.
+    """
 
     model = DenseNet_Model(
                 weights=None,
@@ -100,7 +149,39 @@ def get_auroc_by_groups(test_loader, weights, device, labels, test_df, avg_metho
     return auc_df
 
 
-def get_bootstrap_auc(test_loader, weights, device, labels, test_df, multi_label, n_bootstraps=100, ci=0.95, seed=42):
+def get_bootstrap_auc(test_loader:torch.utils.data.DataLoader, weights:str, device: torch.device, labels : list[str], test_df:pd.DataFrame, multi_label:bool =True, n_bootstraps: int=100, ci: int=0.95, seed:int =42)-> pd.DataFrame:
+
+    """
+    Calculates bootstrap confidence intervals for AUROC scores per disease label grouped by race and overall.
+    Uses model predictions from a test DataLoader with bootstrapping for statistical estimation.
+
+    Parameters
+    ----------
+    test_loader : torch.utils.data.DataLoader
+        DataLoader providing test data.
+    weights : str
+        Path to model weights to load.
+    device : torch.device
+        Device for model inference.
+    labels : list of str
+        Disease label names.
+    test_df : pd.DataFrame
+        Test dataset metadata including ground truth labels and race information.
+    multi_label : bool
+        Whether task is multi-label classification.
+    n_bootstraps : int, optional
+        Number of bootstrap samples to generate (default 100).
+    ci : float, optional
+        Confidence interval level (default 0.95).
+    seed : int, optional
+        Random seed for reproducibility (default 42).
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with AUROC means and confidence intervals for each disease and race group, plus overall.
+    """
+
     np.random.seed(seed)
     model = DenseNet_Model(
                 weights=None,
@@ -170,7 +251,38 @@ def get_bootstrap_auc(test_loader, weights, device, labels, test_df, multi_label
     
     return auc_df
 
-def generate_plot(weights, lung_weights, crop_lung_weights, clahe_weights, device, testing_df, multi_label, base_dir, external_ood_test):
+def generate_plot(weights:str, lung_weights:str, crop_lung_weights:str, clahe_weights:str, device:torch.device, testing_df:pd.DataFrame, multi_label:bool = True, base_dir:str = None, external_ood_test:bool = False)-> None:
+
+    """
+    Generates comparative AUROC plots by race for different preprocessing methods/models on test data.
+    Prepares DataLoaders with different masking or enhancement options, computes bootstrap AUROCs,
+    and plots them with error bars showing confidence intervals.
+
+    Parameters
+    ----------
+    weights : str
+        Path to baseline model weights.
+    lung_weights : str
+        Path to model weights with lung masking.
+    crop_lung_weights : str
+        Path to model weights with cropped lung masking.
+    clahe_weights : str
+        Path to model weights with CLAHE enhancement.
+    device : torch.device
+        Device for running inference (CPU/GPU).
+    testing_df : pd.DataFrame
+        Test dataset DataFrame with image paths, labels, and metadata including race.
+    multi_label : bool
+        Whether the task is multi-label classification.
+    base_dir : str
+        Base directory for image file paths.
+    external_ood_test : bool
+        Flag indicating whether external out-of-distribution test.
+
+    Returns
+    -------
+    None
+    """
 
     labels = [
         "No Finding",

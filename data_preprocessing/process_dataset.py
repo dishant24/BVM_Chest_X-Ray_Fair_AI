@@ -3,7 +3,32 @@ import pandas as pd
 from typing import Union
 import os
 
+
+
 def select_most_positive_sample(group: pd.DataFrame) -> pd.Series:
+    """
+    Selects the sample (row) within a given patient or study group that has the highest number 
+    of positive disease findings across multiple pathology columns.
+
+    This function calculates the total number of positive indications (values of 1) across 
+    several predefined disease-related columns for each record in the provided DataFrame group. 
+    It then returns the row with the maximum count of positive diseases. If no positive findings 
+    are present in the group, a random sample (row) from the group is returned instead.
+
+    Parameters
+    ----------
+    group : pd.DataFrame
+        A subset of the dataset representing a single patient or study group.
+        It must contain the specified disease columns with binary indicators (0 or 1).
+
+    Returns
+    -------
+    pd.Series
+        The row corresponding to the sample with the highest number of positive disease findings.
+        If no positive findings are found, a random row from the group is returned.
+
+    """
+
     disease_columns = [
         "No Finding",
         "Enlarged Cardiomediastinum",
@@ -31,14 +56,47 @@ def select_most_positive_sample(group: pd.DataFrame) -> pd.Series:
 
 
 def get_group_by_data(data: pd.DataFrame, group_column_name: str) -> pd.DataFrame:
+    """
+    Splits a DataFrame into groups based on unique values of a specified column and
+    returns a dictionary where each key is a group name and the corresponding value 
+    is the subset DataFrame for that group.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        The input DataFrame to be grouped.
+    group_column_name : str
+        The name of the column on whose unique values the grouping is based.
+
+    Returns
+    -------
+    dict
+        A dictionary with keys as unique group names and values as DataFrames corresponding to each group.
+    """
     groups_data = {}
     for name, group_data in data.groupby(group_column_name):
         groups_data[name] = group_data
     return groups_data
 
 
-# Merge the data with demographic data
 def add_demographic_data(training_data: pd.DataFrame, demographic_data: pd.DataFrame)-> pd.DataFrame:
+    """
+    Loads training and demographic data from compressed CSV files, then merges demographic 
+    race information into the training dataset based on unique 'subject_id'. Drops rows 
+    where race information is missing after the merge.
+
+    Parameters
+    ----------
+    training_data : str
+        File path to the training data CSV file (gzip compressed).
+    demographic_data : str
+        File path to the demographic data CSV file (gzip compressed).
+
+    Returns
+    -------
+    pd.DataFrame
+        The merged dataset including demographic race information, with missing race rows removed.
+    """
     # Load the CSV files
     df_chexpert = pd.read_csv(training_data, compression="gzip")
     df_patients = pd.read_csv(demographic_data, compression="gzip")
@@ -61,6 +119,23 @@ def add_demographic_data(training_data: pd.DataFrame, demographic_data: pd.DataF
 
 
 def merge_file_path_and_add_dicom_id(file_path: Union[list, str, os.path], dataframe: pd.DataFrame)-> pd.DataFrame:
+    """
+    Reads file paths from a given file or list, extracts 'subject_id', 'study_id', and 'dicom_id' 
+    from the file path structure, then merges this information into the provided dataframe 
+    based on matching 'subject_id' and 'study_id'.
+
+    Parameters
+    ----------
+    file_path : Union[list, str, os.PathLike]
+        File containing paths or a list of paths with format expected to contain subject and study IDs.
+    dataframe : pd.DataFrame
+        DataFrame containing 'subject_id' and 'study_id' to merge with extracted path info.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame enriched with 'dicom_id' and the full file path.
+    """
     paths = []
     data = []
     patient_id, study_id = dataframe["subject_id"], dataframe["study_id"]
@@ -97,6 +172,21 @@ def merge_file_path_and_add_dicom_id(file_path: Union[list, str, os.path], dataf
 
 # Select the single subject_id per patient which has most positive disease
 def sampling_datasets(training_dataset: pd.DataFrame)-> pd.DataFrame:
+    """
+    Samples the training dataset by grouping on 'subject_id' and selecting the sample with the 
+    highest number of positive disease findings per group using the function `select_most_positive_sample`.
+    Drops the helper column 'positive_count' if present and resets the index before returning.
+
+    Parameters
+    ----------
+    training_dataset : pd.DataFrame
+        The input training dataset containing multiple samples per subject.
+
+    Returns
+    -------
+    pd.DataFrame
+        A sampled dataset with one representative record per subject having the most positive findings.
+    """
     training_dataset = training_dataset.groupby("subject_id", group_keys=False).apply(
         select_most_positive_sample
     )
@@ -107,6 +197,20 @@ def sampling_datasets(training_dataset: pd.DataFrame)-> pd.DataFrame:
 
 
 def add_lung_mask_mimic_dataset(dataset: pd.DataFrame)-> pd.DataFrame:
+    """
+    Adds lung mask segmentation data to the MIMIC dataset by merging with a CSV file containing mask metrics.
+    The merge is done on 'dicom_id'. Duplicate entries based on 'subject_id' are dropped after merging.
+
+    Parameters
+    ----------
+    dataset : pd.DataFrame
+        The original MIMIC dataset to which lung mask data will be added.
+
+    Returns
+    -------
+    pd.DataFrame
+        The merged dataset enriched with lung mask measurements, with duplicates dropped on 'subject_id'.
+    """
     file_path = (
         "/deep_learning/output/Sutariya/main/mimic/dataset/MASK-MIMIC-CXR-JPG.csv"
     )
@@ -119,6 +223,20 @@ def add_lung_mask_mimic_dataset(dataset: pd.DataFrame)-> pd.DataFrame:
     return merge_mask_dataset
 
 def add_lung_mask_chexpert_dataset(dataset: pd.DataFrame)-> pd.DataFrame:
+    """
+    Adds lung mask segmentation data to the CheXpert dataset by merging with a CSV file containing mask metrics.
+    Path information is prefixed with the dataset folder before merging on 'Path'.
+
+    Parameters
+    ----------
+    dataset : pd.DataFrame
+        The original CheXpert dataset to which lung mask data will be added.
+
+    Returns
+    -------
+    pd.DataFrame
+        The merged dataset enriched with lung mask measurements.
+    """
     file_path = (
         "/deep_learning/output/Sutariya/main/chexpert/dataset/CheXpert.csv"
     )
@@ -131,8 +249,24 @@ def add_lung_mask_chexpert_dataset(dataset: pd.DataFrame)-> pd.DataFrame:
     return merge_mask_dataset
 
 
-# Merge the data with demographic data
 def merge_dataframe(training_data: pd.DataFrame, demographic_data: pd.DataFrame)-> pd.DataFrame:
+    """
+    Extracts patient IDs from the 'Path' column in the training dataset, converts them to floats,
+    assigns these IDs as a new 'subject_id' column, and then merges the training dataset with
+    demographic data on 'subject_id'.
+
+    Parameters
+    ----------
+    training_data : pd.DataFrame
+        The training dataset containing a 'Path' column with patient ID embedded in the path string.
+    demographic_data : pd.DataFrame
+        The demographic dataset containing patient information, including 'subject_id'.
+
+    Returns
+    -------
+    pd.DataFrame
+        The merged dataset combining training data and demographic information based on patient ID.
+    """
     path = training_data["Path"]
     patientid = []
     for i in path:
@@ -148,6 +282,22 @@ def merge_dataframe(training_data: pd.DataFrame, demographic_data: pd.DataFrame)
 
 
 def add_metadata(dataset: pd.DataFrame, metadata_path: Union[list, str, os.path])-> pd.DataFrame:
+    """
+    Reads metadata from a CSV file, extracts relevant columns ('subject_id', 'study_id', 'ViewPosition'),
+    and merges this metadata with the input dataset. Removes duplicate entries based on 'subject_id' and 'study_id'.
+
+    Parameters
+    ----------
+    dataset : pd.DataFrame
+        The primary dataset to be enriched with metadata.
+    metadata_path : Union[list, str, os.PathLike]
+        File path (or list) to the metadata CSV file containing 'subject_id', 'study_id', and 'ViewPosition'.
+
+    Returns
+    -------
+    pd.DataFrame
+        Dataset merged with metadata.
+    """
     meta_data = pd.read_csv(metadata_path)
     meta_data = meta_data[["subject_id", "study_id", "ViewPosition"]]
     meta_data = meta_data.reset_index(drop=True)
@@ -163,6 +313,23 @@ def add_metadata(dataset: pd.DataFrame, metadata_path: Union[list, str, os.path]
 
 
 def cleaning_datasets(traning_dataset: pd.DataFrame, is_chexpert: bool =True)-> pd.DataFrame:
+    """
+    Cleans the training dataset by dropping irrelevant columns, converting uncertain labels to negative
+    by filling NA with 0, filtering for frontal views if CheXpert dataset, and harmonizing race/ethnicity labels.
+    Eliminates entries with unknown or multiple races and restricts to AP or PA view positions.
+
+    Parameters
+    ----------
+    training_dataset : pd.DataFrame
+        The dataset to be cleaned and filtered.
+    is_chexpert : bool, optional
+        Flag indicating whether the dataset is from CheXpert (default is True).
+
+    Returns
+    -------
+    pd.DataFrame
+        Cleaned and filtered dataset with consistent labeling and race/ethnicity categories.
+    """
     traning_dataset.drop(
         ["Pleural Other", "Fracture", "Support Devices"], axis=1, inplace=True
     )

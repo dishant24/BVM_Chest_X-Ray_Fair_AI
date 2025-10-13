@@ -19,6 +19,41 @@ def prepare_dataloaders(
     is_multilabel: bool = True,
     external_ood_test:bool = False,
 ) -> DataLoader:
+    
+    """
+    Prepares a PyTorch DataLoader for the given images and labels with optional
+    masking, cropping, CLAHE, and data augmentation transforms.
+
+    Parameters
+    ----------
+    images_path : Union[pd.Series, list, str]
+        List or series of image file paths.
+    labels : Union[pd.Series, list, None]
+        Corresponding labels for the images.
+    dataframe : pd.DataFrame
+        Dataframe containing metadata such as lung masks.
+    masked : bool, optional
+        Whether to apply lung masking on the images (default False).
+    clahe : bool, optional
+        Whether to apply CLAHE contrast enhancement (default False).
+    crop_masked : bool, optional
+        Whether to crop images based on lung mask (default False).
+    transform : torchvision.transforms or None, optional
+        Custom transforms to apply; if None, a default Compose pipeline is used (default None).
+    base_dir : Optional[str], optional
+        Base directory for image file paths (default None).
+    shuffle : bool, optional
+        Whether to shuffle the dataset (default False).
+    is_multilabel : bool, optional
+        Whether the task is multilabel classification (default True).
+    external_ood_test : bool, optional
+        Whether to use an external out-of-distribution test dataset path (default False).
+
+    Returns
+    -------
+    DataLoader
+        A PyTorch DataLoader object for the prepared dataset.
+    """
 
     if transform is None:
         transform = transforms.Compose(
