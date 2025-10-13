@@ -22,18 +22,32 @@ def model_training(
     multi_label: bool = True,
 ) -> None:
     """
-    Trains a model for either multi-label or multi-class classification.
+    Trains a model for multi-label or multi-class classification with early stopping based on validation AUC.
 
-    Args:
-    - model (nn.Module): The neural network model.
-    - train_loader (DataLoader): Training data loader.
-    - val_loader (DataLoader): Validation data loader.
-    - num_epochs (int): Number of training epochs.
-    - device (torch.device): Device to train on (CPU or GPU).
-    - multi_label (bool): Whether the task is multi-label (default: True).
+    Parameters
+    ----------
+    model : torch.nn.Module
+        The neural network model to train.
+    train_loader : torch.utils.data.DataLoader
+        DataLoader for training data.
+    val_loader : torch.utils.data.DataLoader
+        DataLoader for validation data.
+    loss_function : Callable
+        Loss function to optimize (e.g., BCEWithLogitsLoss or CrossEntropyLoss with smoothing).
+    tasks : str
+        Name of the task for logging.
+    actual_labels : List[str]
+        List of the label names used for logging metrics.
+    num_epochs : int, default 10
+        Number of training epochs.
+    device : torch.device, optional
+        Device to train the model on (CPU/GPU).
+    multi_label : bool, default True
+        Whether the classification task is multi-label.
 
-    Returns:
-    - None
+    Returns
+    -------
+    None
     """
     model = model.to(device)
     base_optimizer = torch.optim.AdamW(
@@ -130,6 +144,8 @@ def model_training(
             val_acc = accuracy_score(all_val_labels, val_pred_classes)
 
         wandb.log({"Training AUC": auc_roc_train, "Validation AUC": auc_roc_val})
+
+        
         log_roc_auc(
             y_true= all_train_labels,
             y_scores= all_train_preds, 
