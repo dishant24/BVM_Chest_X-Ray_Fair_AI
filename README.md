@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Improving Generalization and Robustness of ChestX-ray AI Models: Preprocessing method to mitigate Racial/Ethnic Bias
 
 This project focuses on improving the **fairness** and **robustness** of AI models used in **medical chest X-ray (CXR) diagnosis**. The primary objective is mitigate **racial demographic biases** that can arise in deep learning models trained on medical imaging CXR datasets.
@@ -14,25 +13,23 @@ Build processing method for an AI model that is:
 
 ---
 
-
 ## 📦 Installation
 
-```bash
 git clone git@gitlab.fme.lan:sutariya/cxr_preprocessing.git
 cd cxr_preprocessing
 pip install -r requirements.txt
-```
+
 
 ## ⚙️ Methods and Approach
 
 1. **Model Training**:
-   - Reproduce inital experiments of reference papers and bulit DenseNet model
-   - Train model on diagnosis label and use same embedding to train model on race (Use transfer learning for race classification)
+   - Reproduce initial experiments of reference papers and build DenseNet model
+   - Train model on diagnosis labels, use same embedding to train model on race (transfer learning for race classification)
    - Evaluate model performance across demographic slices
 
 2. **Bias Mitigation**:
-   - Used lung segmentation for model only focus on relevant clinical feature 
-   - Used CLAHE histogram Equalization method to prevent image from noise and give better constast
+   - Use lung segmentation so model focuses on relevant clinical features 
+   - Use CLAHE histogram equalization method to reduce noise and improve contrast
 
 
 ## 🗂️ Dataset(s)
@@ -44,7 +41,98 @@ This project uses publicly available chest X-ray datasets such as:
 These datasets include metadata for demographic attributes.
 
 ---
-=======
-# BVM_Chest_X-Ray_Fair_AI
-This project focuses on improving the fairness and robustness of AI models used in medical chest X-ray (CXR) diagnosis. The primary objective is mitigate racial demographic biases that can arise in deep learning models trained on medical imaging CXR datasets.
->>>>>>> ff21d3f9cdf57b3b023492718ea065cafc25db92
+
+## ⚙️ How to Run Experiments
+
+This section explains how to use this codebase to run all experiments exactly as described, including training, testing, external dataset evaluation, group-wise analysis, plotting, and result table generation.
+
+### 1. Prepare Dataset Paths
+
+Configure dataset paths before running experiments.
+
+For **MIMIC** dataset:
+
+meta_file_path = mimic-cxr-2.0.0-metadata.csv.gz
+demographic_data_path = admissions.csv.gz
+all_dataset_path = mimic-cxr-2.0.0-chexpert.csv.gz
+
+
+For **external out-of-distribution (OOD) tests** using CheXpert:
+
+demographic_data_path = demographics_CXP.csv
+train_dataset_path = chexpert/train.csv
+
+
+---
+
+### 2. Running Training and Testing
+
+Use the provided `mimic_cxr_model.py` script and relevant flags to run training and testing:
+
+#### a) Train Diagnostic Model on MIMIC
+
+python mimic_cxr_model.py --task diagnostic --random_state 100 --epoch 30 --dataset mimic --training
+
+
+#### b) Test Diagnostic Model on MIMIC
+
+python mimic_cxr_model.py --task diagnostic --random_state 100 --epoch 30 --dataset mimic
+
+
+#### c) Train Race Classification Model on MIMIC
+
+python mimic_cxr_model.py --task race --random_state 100 --epoch 30 --dataset mimic --training
+
+
+#### d) Test Race Classification Model on MIMIC
+
+python mimic_cxr_model.py --task race --random_state 100 --epoch 30 --dataset mimic
+
+
+---
+
+### 3. External Dataset Evaluation
+
+Evaluate models on the external CheXpert dataset:
+
+#### a) Diagnostic External Dataset Evaluation
+
+python mimic_cxr_model.py --task diagnostic --random_state 100 --epoch 30 --dataset mimic --external_ood_test
+
+
+#### b) Race External Dataset Evaluation
+
+python mimic_cxr_model.py --task race --random_state 100 --epoch 30 --dataset mimic --external_ood_test
+
+
+---
+
+### 5. Generate AUROC Plots
+
+Create comparative AUROC plots for all models and preprocessing methods. To include external data, add `--external_ood_test` flag.
+
+python helper/generate_plot.py --task diagnostic --random_state 100 --dataset mimic
+
+
+---
+
+### 6. Generate Result Tables
+
+Produce result summary tables comparing models and preprocessing effects. Add `--external_ood_test` for including external dataset results.
+
+python helper/generate_result_tables.py --random_state 100 --dataset mimic
+
+
+---
+
+## Notes
+
+- Make sure all dataset path variables are correctly set before running.
+- Training flags are mandatory to initiate model training; omit to run inference only.
+- The `multi_label` flag is set internally based on the task.
+- Adjust `random_state` and epochs as needed for reproducibility and training length.
+- Scripts assume running in an environment with required dependencies and access to GPU for best performance.
+
+This guide enables exact replication of the experiments for fair, robust, and accurate chest X-ray AI model development.
+
+
