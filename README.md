@@ -14,11 +14,11 @@ Build processing method for an AI model that is:
 ---
 
 ## 📦 Installation
-
+```
 git clone https://github.com/dishant24/BVM_Chest_X-Ray_Fair_AI.git
 cd cxr_preprocessing
 pip install -r requirements.txt
-
+```
 
 ## ⚙️ Methods and Approach
 
@@ -74,26 +74,25 @@ train_dataset_path = chexpert/train.csv
 Use the provided `mimic_cxr_model.py` script and relevant flags to run training and testing:
 
 #### a) Train Diagnostic Model on MIMIC
-
+```
 python mimic_cxr_model.py --task diagnostic --random_state 100 --epoch 30 --dataset mimic --training
-
+```
 
 #### b) Test Diagnostic Model on MIMIC
-
+```
 python mimic_cxr_model.py --task diagnostic --random_state 100 --epoch 30 --dataset mimic
-
+```
 
 #### c) Train Race Classification Model on MIMIC
 - You just need to change the task to race
-- 
+```
 python mimic_cxr_model.py --task race --random_state 100 --epoch 30 --dataset mimic --training
-
+```
 
 #### d) Test Race Classification Model on MIMIC
-
+```
 python mimic_cxr_model.py --task race --random_state 100 --epoch 30 --dataset mimic
-
-
+```
 ---
 
 ### 3. External Dataset Evaluation
@@ -101,32 +100,33 @@ python mimic_cxr_model.py --task race --random_state 100 --epoch 30 --dataset mi
 Evaluate models on the external CheXpert dataset:
 
 #### a) Diagnostic External Dataset Evaluation
-- Add external_ood_test flag 
+- Add external_ood_test flag
+```
 python mimic_cxr_model.py --task diagnostic --random_state 100 --epoch 30 --dataset mimic --external_ood_test
-
+```
 
 #### b) Race External Dataset Evaluation
-
+```
 python mimic_cxr_model.py --task race --random_state 100 --epoch 30 --dataset mimic --external_ood_test
-
+```
 
 ---
 
 ### 5. Generate AUROC Plots
 
 Create comparative AUROC plots for all models and preprocessing methods. To include external data, add `--external_ood_test` flag.
-
+```
 python helper/generate_plot.py --task diagnostic --random_state 100 --dataset mimic
-
+```
 
 ---
 
 ### 6. Generate Result Tables
 
 Produce result summary tables comparing models and preprocessing effects. Add `--external_ood_test` for including external dataset results.
-
+```
 python helper/generate_result_tables.py --random_state 100 --dataset mimic
-
+```
 
 ---
 
