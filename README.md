@@ -15,7 +15,7 @@ Build processing method for an AI model that is:
 
 ## 📦 Installation
 
-git clone git@gitlab.fme.lan:sutariya/cxr_preprocessing.git
+git clone https://github.com/dishant24/BVM_Chest_X-Ray_Fair_AI.git
 cd cxr_preprocessing
 pip install -r requirements.txt
 
@@ -35,7 +35,7 @@ pip install -r requirements.txt
 ## 🗂️ Dataset(s)
 
 This project uses publicly available chest X-ray datasets such as:
-- **MIMIC-CXR**
+- **MIMIC-CXR-JPG**
 - **CheXpert**
 
 These datasets include metadata for demographic attributes.
@@ -51,13 +51,17 @@ This section explains how to use this codebase to run all experiments exactly as
 Configure dataset paths before running experiments.
 
 For **MIMIC** dataset:
+You can dowanload this dataset from here: https://physionet.org/content/mimic-cxr-jpg/2.0.0/
 
 meta_file_path = mimic-cxr-2.0.0-metadata.csv.gz
 demographic_data_path = admissions.csv.gz
 all_dataset_path = mimic-cxr-2.0.0-chexpert.csv.gz
 
 
+
+
 For **external out-of-distribution (OOD) tests** using CheXpert:
+You can dowanload this dataset from here: https://stanfordaimi.azurewebsites.net/datasets/8cbd9ed4-2eb9-4565-affc-111cf4f7ebe2
 
 demographic_data_path = demographics_CXP.csv
 train_dataset_path = chexpert/train.csv
@@ -65,7 +69,7 @@ train_dataset_path = chexpert/train.csv
 
 ---
 
-### 2. Running Training and Testing
+### 2.Training and Testing
 
 Use the provided `mimic_cxr_model.py` script and relevant flags to run training and testing:
 
@@ -80,7 +84,8 @@ python mimic_cxr_model.py --task diagnostic --random_state 100 --epoch 30 --data
 
 
 #### c) Train Race Classification Model on MIMIC
-
+- You just need to change the task to race
+- 
 python mimic_cxr_model.py --task race --random_state 100 --epoch 30 --dataset mimic --training
 
 
@@ -96,7 +101,7 @@ python mimic_cxr_model.py --task race --random_state 100 --epoch 30 --dataset mi
 Evaluate models on the external CheXpert dataset:
 
 #### a) Diagnostic External Dataset Evaluation
-
+- Add external_ood_test flag 
 python mimic_cxr_model.py --task diagnostic --random_state 100 --epoch 30 --dataset mimic --external_ood_test
 
 
