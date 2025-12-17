@@ -16,7 +16,7 @@ Build processing method for an AI model that is:
 ## 📦 Installation
 ```
 git clone https://github.com/dishant24/BVM_Chest_X-Ray_Fair_AI.git
-cd cxr_preprocessing
+cd BVM_Chest_X_Ray_Fair_AI
 pip install -r requirements.txt
 ```
 
@@ -27,7 +27,7 @@ pip install -r requirements.txt
    - Train model on diagnosis labels, use same embedding to train model on race (transfer learning for race classification)
    - Evaluate model performance across demographic slices
 
-2. **Bias Mitigation**:
+3. **Bias Mitigation**:
    - Use lung segmentation so model focuses on relevant clinical features 
    - Use CLAHE histogram equalization method to reduce noise and improve contrast
 
@@ -57,7 +57,7 @@ meta_file_path = mimic-cxr-2.0.0-metadata.csv.gz
 demographic_data_path = admissions.csv.gz
 all_dataset_path = mimic-cxr-2.0.0-chexpert.csv.gz
 
-
+- If you running `mimic_cxr_model.py` file it take original data and code apply cleaning and splitting datasets automatically and save files.
 
 
 For **external out-of-distribution (OOD) tests** using CheXpert:
